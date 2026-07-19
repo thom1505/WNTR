@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Hashable
+from collections.abc import Hashable, Mapping
 from dataclasses import dataclass
 
 
@@ -30,3 +30,19 @@ class ConstraintResult:
     feasible: bool
     critical_component: str
     critical_time: Hashable
+
+
+@dataclass(frozen=True)
+class PipeDesign:
+    """Describe proposed diameter changes for selected pipes.
+
+    Parameters
+    ----------
+    name
+        User-facing name for the design alternative.
+    diameters_m
+        Mapping of pipe names to proposed diameters in metres.
+    """
+
+    name: str
+    diameters_m: Mapping[str, float]
