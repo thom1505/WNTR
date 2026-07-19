@@ -46,3 +46,40 @@ class PipeDesign:
 
     name: str
     diameters_m: Mapping[str, float]
+
+
+@dataclass(frozen=True)
+class HydraulicScenario:
+    """Describe hydraulic operating conditions for one assessment.
+
+    Parameters
+    ----------
+    name
+        User-facing name for the hydraulic scenario.
+    demand_multiplier
+        Global multiplier applied to all junction demands.
+    demand_model
+        Hydraulic demand formulation, normally ``DD`` or ``PDD``.
+    duration_s
+        Total simulation duration in seconds. A value of zero
+        represents a steady-state simulation.
+    hydraulic_timestep_s
+        Hydraulic calculation timestep in seconds.
+    report_timestep_s
+        Hydraulic-results reporting timestep in seconds.
+    minimum_pressure_m
+        Optional global minimum pressure for pressure-dependent
+        demand analysis, in metres.
+    required_pressure_m
+        Optional global required pressure for pressure-dependent
+        demand analysis, in metres.
+    """
+
+    name: str
+    demand_multiplier: float = 1.0
+    demand_model: str = "DD"
+    duration_s: int = 0
+    hydraulic_timestep_s: int = 3600
+    report_timestep_s: int = 3600
+    minimum_pressure_m: float | None = None
+    required_pressure_m: float | None = None

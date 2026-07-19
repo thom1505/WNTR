@@ -5,12 +5,13 @@ import pytest
 import wntr
 
 from wntr.extensions.design_verification import (
+    HydraulicScenario,
     PipeDesign,
+    apply_hydraulic_scenario,
     apply_pipe_design,
     evaluate_maximum_velocity,
     evaluate_minimum_pressure,
 )
-
 pytestmark = pytest.mark.extensions
 
 
@@ -286,4 +287,224 @@ def test_apply_pipe_design_rejects_empty_design():
         apply_pipe_design(
             wn=wn,
             design=design,
+        )
+
+
+def test_apply_hydraulic_scenario_changes_copied_network():
+    """Apply hydraulic settings to an independent network copy."""
+    wn = build_small_network()
+
+    scenario = HydraulicScenario(
+        name="Peak demand PDD",
+        demand_multiplier=1.40,
+        demand_model="PDD",
+        duration_s=86400,
+        hydraulic_timestep_s=3600,
+        report_timestep_s=3600,
+        minimum_pressure_m=0.0,
+        required_pressure_m=15.0,
+    )
+
+    scenario_wn, audit = apply_hydraulic_scenario(
+        wn=wn,
+        scenario=scenario,
+    )
+
+    assert (
+        scenario_wn.options.hydraulic.demand_multiplier
+        == pytest.approx(1.40)
+    )
+
+    assert str(
+        scenario_wn.options.hydraulic.demand_model
+    ).upper() in {"PDD", "PDA"}
+
+    assert scenario_wn.options.time.duration == 86400
+    assert (
+        scenario_wn.options.time.hydraulic_timestep
+        == 3600
+    )
+    assert (
+        scenario_wn.options.time.report_timestep
+        == 3600
+    )
+
+    assert (
+        scenario_wn.options.hydraulic.minimum_pressure
+        == pytest.approx(0.0)
+    )
+    assert (
+        scenario_wn.options.hydraulic.required_pressure
+        == pytest.approx(15.0)
+    )
+
+    assert audit["scenario_name"] == "Peak demand PDD"
+    assert (
+        audit["applied_settings"]["demand_multiplier"]
+        == pytest.approx(1.40)
+    )
+
+
+def test_apply_hydraulic_scenario_preserves_original_network():
+    """Confirm that scenario application does not change the original."""
+    wn = build_small_network()
+
+    original_multiplier = (
+        wn.options.hydraulic.demand_multiplier
+    )
+    original_duration = wn.options.time.duration
+    original_demand_model = str(
+        wn.options.hydraulic.demand_model
+    )
+
+    scenario = HydraulicScenario(
+        name="Peak demand",
+        demand_multiplier=1.50,
+        demand_model="PDD",
+        duration_s=86400,
+        hydraulic_timestep_s=3600,
+        report_timestep_s=3600,
+        minimum_pressure_m=0.0,
+        required_pressure_m=15.0,
+    )
+
+    scenario_wn, _ = apply_hydraulic_scenario(
+        wn=wn,
+        scenario=scenario,
+    )
+
+    assert scenario_wn is not wn
+
+    assert (
+        wn.options.hydraulic.demand_multiplier
+        == pytest.approx(original_multiplier)
+    )
+    assert wn.options.time.duration == original_duration
+    assert (
+        str(wn.options.hydraulic.demand_model)
+        == original_demand_model
+    )
+
+    assert (
+        scenario_wn.options.hydraulic.demand_multiplier
+        == pytest.approx(1.50)
+    )
+
+
+def test_apply_hydraulic_scenario_accepts_demand_model_alias():
+    """Accept DDA as an alias for demand-driven analysis."""
+    wn = build_small_network()
+
+    scenario = HydraulicScenario(
+        name="Demand-driven analysis",
+        demand_model="DDA",
+    )
+
+    scenario_wn, _ = apply_hydraulic_scenario(
+        wn=wn,
+        scenario=scenario,
+    )
+
+    assert str(
+        scenario_wn.options.hydraulic.demand_model
+    ).upper() in {"DD", "DDA"}
+
+
+def test_apply_hydraulic_scenario_rejects_invalid_multiplier():
+    """Reject a demand multiplier that is not positive."""
+    wn = build_small_network()
+
+    scenario = HydraulicScenario(
+        name="Invalid multiplier",
+        demand_multiplier=0.0,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="demand_multiplier must be greater than zero",
+    ):
+        apply_hydraulic_scenario(
+            wn=wn,
+            scenario=scenario,
+        )
+
+
+def test_apply_hydraulic_scenario_rejects_invalid_demand_model():
+    """Reject an unsupported hydraulic demand model."""
+    wn = build_small_network()
+
+    scenario = HydraulicScenario(
+        name="Invalid model",
+        demand_model="UNKNOWN",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="demand_model must be one of",
+    ):
+        apply_hydraulic_scenario(
+            wn=wn,
+            scenario=scenario,
+        )
+
+
+def test_apply_hydraulic_scenario_rejects_negative_duration():
+    """Reject a negative hydraulic simulation duration."""
+    wn = build_small_network()
+
+    scenario = HydraulicScenario(
+        name="Invalid duration",
+        duration_s=-3600,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="duration_s must be greater than or equal to zero",
+    ):
+        apply_hydraulic_scenario(
+            wn=wn,
+            scenario=scenario,
+        )
+
+
+def test_apply_hydraulic_scenario_rejects_zero_timestep():
+    """Reject a hydraulic timestep equal to zero."""
+    wn = build_small_network()
+
+    scenario = HydraulicScenario(
+        name="Invalid timestep",
+        hydraulic_timestep_s=0,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="hydraulic_timestep_s must be greater than zero",
+    ):
+        apply_hydraulic_scenario(
+            wn=wn,
+            scenario=scenario,
+        )
+
+
+def test_apply_hydraulic_scenario_rejects_pressure_inconsistency():
+    """Require required pressure to exceed minimum pressure."""
+    wn = build_small_network()
+
+    scenario = HydraulicScenario(
+        name="Invalid pressure settings",
+        demand_model="PDD",
+        minimum_pressure_m=15.0,
+        required_pressure_m=10.0,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "required_pressure_m must be greater than "
+            "minimum_pressure_m"
+        ),
+    ):
+        apply_hydraulic_scenario(
+            wn=wn,
+            scenario=scenario,
         )
