@@ -2,12 +2,14 @@
 
 import pandas as pd
 import pytest
+import wntr
 
 from wntr.extensions.design_verification import (
+    PipeDesign,
+    apply_pipe_design,
     evaluate_maximum_velocity,
     evaluate_minimum_pressure,
 )
-
 
 pytestmark = pytest.mark.extensions
 
@@ -134,4 +136,154 @@ def test_invalid_compliance_percentage_is_rejected():
             velocity=velocity,
             maximum_velocity_mps=2.5,
             required_compliance_pct=101.0,
+        )
+
+def build_small_network():
+    """Create a small network for pipe-design tests."""
+    wn = wntr.network.WaterNetworkModel()
+
+    wn.add_reservoir(
+        "R1",
+        base_head=50.0,
+        coordinates=(0.0, 0.0),
+    )
+
+    wn.add_junction(
+        "J1",
+        base_demand=0.01,
+        demand_pattern=None,
+        elevation=10.0,
+        coordinates=(100.0, 0.0),
+    )
+
+    wn.add_pipe(
+        "P1",
+        start_node_name="R1",
+        end_node_name="J1",
+        length=100.0,
+        diameter=0.150,
+        roughness=100.0,
+        minor_loss=0.0,
+    )
+
+    return wn
+
+
+def test_apply_pipe_design_changes_copied_network():
+    """Apply a diameter change to the copied network."""
+    wn = build_small_network()
+
+    design = PipeDesign(
+        name="Alternative A",
+        diameters_m={
+            "P1": 0.250,
+        },
+    )
+
+    trial_wn, audit = apply_pipe_design(
+        wn=wn,
+        design=design,
+    )
+
+    assert trial_wn.get_link("P1").diameter == pytest.approx(
+        0.250
+    )
+
+    assert len(audit) == 1
+    assert audit[0]["pipe_name"] == "P1"
+    assert audit[0]["old_diameter_m"] == pytest.approx(
+        0.150
+    )
+    assert audit[0]["new_diameter_m"] == pytest.approx(
+        0.250
+    )
+
+
+def test_apply_pipe_design_preserves_original_network():
+    """Confirm that the original model is not modified."""
+    wn = build_small_network()
+
+    original_diameter = wn.get_link("P1").diameter
+
+    design = PipeDesign(
+        name="Alternative A",
+        diameters_m={
+            "P1": 0.250,
+        },
+    )
+
+    trial_wn, _ = apply_pipe_design(
+        wn=wn,
+        design=design,
+    )
+
+    assert wn.get_link("P1").diameter == pytest.approx(
+        original_diameter
+    )
+
+    assert trial_wn.get_link("P1").diameter == pytest.approx(
+        0.250
+    )
+
+    assert trial_wn is not wn
+
+
+def test_apply_pipe_design_rejects_missing_pipe():
+    """Reject a design containing an unknown pipe name."""
+    wn = build_small_network()
+
+    design = PipeDesign(
+        name="Invalid alternative",
+        diameters_m={
+            "MissingPipe": 0.250,
+        },
+    )
+
+    with pytest.raises(
+        KeyError,
+        match="does not exist",
+    ):
+        apply_pipe_design(
+            wn=wn,
+            design=design,
+        )
+
+
+def test_apply_pipe_design_rejects_negative_diameter():
+    """Reject a proposed diameter that is not positive."""
+    wn = build_small_network()
+
+    design = PipeDesign(
+        name="Invalid alternative",
+        diameters_m={
+            "P1": -0.250,
+        },
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="greater than zero",
+    ):
+        apply_pipe_design(
+            wn=wn,
+            design=design,
+        )
+
+
+def test_apply_pipe_design_rejects_empty_design():
+    """Reject a design containing no pipe changes."""
+    wn = build_small_network()
+
+    design = PipeDesign(
+        name="Empty alternative",
+        diameters_m={},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="at least one",
+    ):
+        apply_pipe_design(
+            wn=wn,
+            design=design,
         )
