@@ -7,10 +7,12 @@ import wntr
 from wntr.extensions.design_verification import (
     HydraulicScenario,
     PipeDesign,
+    VerificationResult,
     apply_hydraulic_scenario,
     apply_pipe_design,
     evaluate_maximum_velocity,
     evaluate_minimum_pressure,
+    run_design_verification,
 )
 pytestmark = pytest.mark.extensions
 
@@ -507,4 +509,205 @@ def test_apply_hydraulic_scenario_rejects_pressure_inconsistency():
         apply_hydraulic_scenario(
             wn=wn,
             scenario=scenario,
+        )
+
+def test_run_design_verification_returns_feasible_result():
+    """Run a complete feasible hydraulic verification."""
+    wn = build_small_network()
+
+    scenario = HydraulicScenario(
+        name="Baseline DD",
+        demand_model="DD",
+        duration_s=0,
+        hydraulic_timestep_s=3600,
+        report_timestep_s=3600,
+    )
+
+    verification, results, audit = run_design_verification(
+        wn=wn,
+        scenario=scenario,
+        simulator="WNTR",
+        minimum_pressure_m=15.0,
+        maximum_velocity_mps=2.5,
+    )
+
+    assert isinstance(
+        verification,
+        VerificationResult,
+    )
+
+    assert verification.design_name is None
+    assert verification.scenario_name == "Baseline DD"
+    assert verification.simulator_name == "WNTR"
+    assert verification.pressure_result.feasible is True
+    assert verification.velocity_result.feasible is True
+    assert verification.feasible is True
+
+    assert verification.pressure_result.critical_component == "J1"
+    assert verification.velocity_result.critical_component == "P1"
+
+    assert audit["junctions_assessed"] == ["J1"]
+    assert audit["pipes_assessed"] == ["P1"]
+
+    assert "pressure" in results.node
+    assert "velocity" in results.link
+
+
+def test_run_design_verification_applies_pipe_design():
+    """Apply a proposed pipe diameter before simulation."""
+    wn = build_small_network()
+
+    design = PipeDesign(
+        name="Larger pipe",
+        diameters_m={
+            "P1": 0.250,
+        },
+    )
+
+    scenario = HydraulicScenario(
+        name="Baseline DD",
+        demand_model="DD",
+    )
+
+    verification, _, audit = run_design_verification(
+        wn=wn,
+        scenario=scenario,
+        design=design,
+        simulator="WNTR",
+        minimum_pressure_m=15.0,
+        maximum_velocity_mps=2.5,
+    )
+
+    assert verification.design_name == "Larger pipe"
+    assert audit["design"] is not None
+    assert len(audit["design"]) == 1
+
+    assert (
+        audit["design"][0]["pipe_name"]
+        == "P1"
+    )
+    assert (
+        audit["design"][0]["old_diameter_m"]
+        == pytest.approx(0.150)
+    )
+    assert (
+        audit["design"][0]["new_diameter_m"]
+        == pytest.approx(0.250)
+    )
+
+
+def test_run_design_verification_preserves_original_network():
+    """Protect the original network during a complete verification."""
+    wn = build_small_network()
+
+    original_diameter = wn.get_link("P1").diameter
+    original_multiplier = (
+        wn.options.hydraulic.demand_multiplier
+    )
+
+    design = PipeDesign(
+        name="Larger pipe",
+        diameters_m={
+            "P1": 0.250,
+        },
+    )
+
+    scenario = HydraulicScenario(
+        name="Peak demand",
+        demand_multiplier=1.40,
+        demand_model="PDD",
+        minimum_pressure_m=0.0,
+        required_pressure_m=15.0,
+    )
+
+    run_design_verification(
+        wn=wn,
+        scenario=scenario,
+        design=design,
+        simulator="WNTR",
+        minimum_pressure_m=15.0,
+        maximum_velocity_mps=2.5,
+    )
+
+    assert (
+        wn.get_link("P1").diameter
+        == pytest.approx(original_diameter)
+    )
+
+    assert (
+        wn.options.hydraulic.demand_multiplier
+        == pytest.approx(original_multiplier)
+    )
+
+
+def test_run_design_verification_detects_pressure_failure():
+    """Mark the verification infeasible when pressure is too low."""
+    wn = build_small_network()
+
+    scenario = HydraulicScenario(
+        name="Pressure failure",
+        demand_model="DD",
+    )
+
+    verification, _, _ = run_design_verification(
+        wn=wn,
+        scenario=scenario,
+        simulator="WNTR",
+        minimum_pressure_m=45.0,
+        maximum_velocity_mps=2.5,
+    )
+
+    assert verification.pressure_result.feasible is False
+    assert verification.velocity_result.feasible is True
+    assert verification.feasible is False
+
+    assert (
+        verification.pressure_result.critical_value
+        < 45.0
+    )
+
+
+def test_run_design_verification_detects_velocity_failure():
+    """Mark the verification infeasible when velocity is too high."""
+    wn = build_small_network()
+
+    scenario = HydraulicScenario(
+        name="Velocity failure",
+        demand_model="DD",
+    )
+
+    verification, _, _ = run_design_verification(
+        wn=wn,
+        scenario=scenario,
+        simulator="WNTR",
+        minimum_pressure_m=15.0,
+        maximum_velocity_mps=0.10,
+    )
+
+    assert verification.pressure_result.feasible is True
+    assert verification.velocity_result.feasible is False
+    assert verification.feasible is False
+
+    assert (
+        verification.velocity_result.critical_value
+        > 0.10
+    )
+
+
+def test_run_design_verification_rejects_unknown_simulator():
+    """Reject an unsupported hydraulic simulator name."""
+    wn = build_small_network()
+
+    scenario = HydraulicScenario(
+        name="Invalid simulator",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="simulator must be WNTR or EPANET",
+    ):
+        run_design_verification(
+            wn=wn,
+            scenario=scenario,
+            simulator="UNKNOWN",
         )

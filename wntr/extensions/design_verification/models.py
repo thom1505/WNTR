@@ -83,3 +83,35 @@ class HydraulicScenario:
     report_timestep_s: int = 3600
     minimum_pressure_m: float | None = None
     required_pressure_m: float | None = None
+
+
+@dataclass(frozen=True)
+class VerificationResult:
+    """Store the combined result of one hydraulic verification run.
+
+    Parameters
+    ----------
+    design_name
+        Name of the applied pipe design, or ``None`` for the
+        unchanged baseline network.
+    scenario_name
+        Name of the hydraulic operating scenario.
+    simulator_name
+        Name of the hydraulic simulator used.
+    pressure_result
+        Minimum-pressure constraint result.
+    velocity_result
+        Maximum-velocity constraint result.
+    feasible
+        Whether both pressure and velocity requirements were met.
+    simulation_error_code
+        Simulator error code, when one is supplied by WNTR.
+    """
+
+    design_name: str | None
+    scenario_name: str
+    simulator_name: str
+    pressure_result: ConstraintResult
+    velocity_result: ConstraintResult
+    feasible: bool
+    simulation_error_code: int | None = None
