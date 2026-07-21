@@ -118,3 +118,11 @@ arouca_extension_outputs_epanet/
 # Ignore generated Arouca result files
 arouca_extension_outputs/
 arouca_extension_outputs_epanet/
+
+
+# Include the reproducible Arouca batch experiment
+!examples/design_verification/arouca_batch_verification.py
+
+# Ignore generated Arouca batch results
+arouca_batch_outputs/
+arouca_batch_outputs_epanet/
