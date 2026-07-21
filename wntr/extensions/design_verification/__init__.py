@@ -1,5 +1,6 @@
 """Scenario-based hydraulic design-verification extension."""
 
+from .batch import run_verification_batch
 from .constraints import (
     evaluate_maximum_velocity,
     evaluate_minimum_pressure,
@@ -25,4 +26,5 @@ __all__ = [
     "evaluate_maximum_velocity",
     "evaluate_minimum_pressure",
     "run_design_verification",
+    "run_verification_batch",
 ]
