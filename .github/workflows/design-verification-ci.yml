@@ -1,0 +1,67 @@
+name: Design verification extension
+
+on:
+  pull_request:
+    paths:
+      - "wntr/extensions/design_verification/**"
+      - "wntr/tests/extensions/test_*design_verification*.py"
+      - "wntr/tests/extensions/test_arouca*.py"
+      - "examples/design_verification/**"
+      - ".github/workflows/design-verification-ci.yml"
+  push:
+    branches:
+      - feature/design-verification
+    paths:
+      - "wntr/extensions/design_verification/**"
+      - "wntr/tests/extensions/test_*design_verification*.py"
+      - "wntr/tests/extensions/test_arouca*.py"
+      - "examples/design_verification/**"
+      - ".github/workflows/design-verification-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  extension-tests:
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: "3.11"
+          - os: ubuntu-latest
+            python-version: "3.12"
+          - os: windows-latest
+            python-version: "3.11"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install WNTR and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]"
+
+      - name: Compile extension and examples
+        run: |
+          python -m compileall -q wntr/extensions/design_verification
+          python -m compileall -q examples/design_verification
+
+      - name: Run design-verification tests
+        run: >-
+          python -m pytest -q
+          wntr/tests/extensions/test_design_verification.py
+          wntr/tests/extensions/test_batch_design_verification.py
+          wntr/tests/extensions/test_arouca_design_verification.py
+          wntr/tests/extensions/test_arouca_batch_verification.py
