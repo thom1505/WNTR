@@ -105,3 +105,16 @@ wntr/sim/aml/*.dylib
 wntr/sim/network_isolation/*.so
 wntr/sim/network_isolation/*.dll
 wntr/sim/network_isolation/*.dylib
+
+# Arouca design-verification generated outputs
+arouca_extension_outputs/
+arouca_extension_outputs_epanet/
+
+
+# Include the Arouca design-verification example
+!examples/design_verification/
+!examples/design_verification/arouca_extension_verification.py
+
+# Ignore generated Arouca result files
+arouca_extension_outputs/
+arouca_extension_outputs_epanet/
