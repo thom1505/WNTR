@@ -106,3 +106,64 @@ def test_closed_pump_observations_are_not_curve_violations():
         item.active_observations == 0
         for item in result.pump_results
     )
+
+def test_single_point_curve_uses_generated_zero_head_flow():
+    network = wntr.network.WaterNetworkModel()
+
+    network.add_reservoir(
+        "R1",
+        base_head=100.0,
+    )
+    network.add_junction(
+        "J1",
+        base_demand=0.0,
+        elevation=0.0,
+    )
+    network.add_curve(
+        "curve1",
+        "HEAD",
+        [(0.10, 20.0)],
+    )
+    network.add_pump(
+        "P1",
+        "R1",
+        "J1",
+        pump_type="HEAD",
+        pump_parameter="curve1",
+    )
+
+    flowrate = pd.DataFrame(
+        {
+            "P1": [0.15, 0.21],
+        },
+        index=[0, 3600],
+    )
+    status = pd.DataFrame(
+        {
+            "P1": [1, 1],
+        },
+        index=flowrate.index,
+    )
+    setting = pd.DataFrame(
+        {
+            "P1": [1.0, 1.0],
+        },
+        index=flowrate.index,
+    )
+
+    result = audit_head_pump_curves(
+        network,
+        flowrate,
+        status=status,
+        setting=setting,
+    )
+
+    pump_result = result.pump_results[0]
+
+    assert pump_result.curve_maximum_flow_m3s == pytest.approx(
+        0.20
+    )
+    assert pump_result.active_observations == 2
+    assert pump_result.exceedance_observations == 1
+    assert not pump_result.passed
+    assert not result.all_pumps_passed

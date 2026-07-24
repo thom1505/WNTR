@@ -57,19 +57,32 @@ def _numeric_series(
     )
 
 
-def _curve_maximum_flow(pump: object) -> tuple[str | None, float | None]:
+def _curve_maximum_flow(
+    pump: object,
+) -> tuple[str | None, float | None]:
+    """Return the maximum flow represented by a head-pump curve.
+
+    For a one-point curve, WNTR and EPANET generate an implied pump
+    curve. Its zero-head flow is calculated from the generated
+    A, B, and C coefficients.
+
+    For curves containing two or more supplied points, the maximum
+    supplied flow is treated as the explicit curve-domain boundary.
+    """
     curve_name = getattr(pump, "pump_curve_name", None)
 
     try:
         curve = pump.get_pump_curve()
-    except Exception:
+    except (AttributeError, KeyError, RuntimeError):
         return curve_name, None
 
     points = getattr(curve, "points", None)
     if not points:
         return curve_name, None
 
-    flows: list[float] = []
+    curve_name = str(getattr(curve, "name", curve_name))
+
+    valid_flows: list[float] = []
 
     for point in points:
         try:
@@ -78,12 +91,55 @@ def _curve_maximum_flow(pump: object) -> tuple[str | None, float | None]:
             continue
 
         if math.isfinite(flow) and flow >= 0.0:
-            flows.append(flow)
+            valid_flows.append(flow)
 
-    if not flows:
+    if not valid_flows:
         return curve_name, None
 
-    return str(getattr(curve, "name", curve_name)), max(flows)
+    if len(points) == 1:
+        try:
+            coefficient_a, coefficient_b, coefficient_c = (
+                float(value)
+                for value in pump.get_head_curve_coefficients()
+            )
+        except (
+            AttributeError,
+            RuntimeError,
+            TypeError,
+            ValueError,
+            ZeroDivisionError,
+        ):
+            return curve_name, None
+
+        coefficients_valid = (
+            math.isfinite(coefficient_a)
+            and math.isfinite(coefficient_b)
+            and math.isfinite(coefficient_c)
+            and coefficient_a > 0.0
+            and coefficient_b > 0.0
+            and coefficient_c > 0.0
+        )
+
+        if not coefficients_valid:
+            return curve_name, None
+
+        try:
+            maximum_flow = (
+                coefficient_a / coefficient_b
+            ) ** (1.0 / coefficient_c)
+        except (
+            ArithmeticError,
+            OverflowError,
+            ValueError,
+        ):
+            return curve_name, None
+
+        if not math.isfinite(maximum_flow) or maximum_flow <= 0.0:
+            return curve_name, None
+
+        return curve_name, maximum_flow
+
+    return curve_name, max(valid_flows)
 
 
 def audit_head_pump_curves(
