@@ -1,4 +1,4 @@
-﻿"""Head-pump operating-curve auditing for hydraulic verification."""
+"""Head-pump operating-curve auditing for hydraulic verification."""
 
 from __future__ import annotations
 
@@ -243,17 +243,42 @@ def audit_head_pump_curves(
                 dtype=float,
             )
         else:
-            speed = pump_setting.abs().fillna(base_speed)
+                speed = pump_setting
 
         allowed_flow = curve_maximum_flow * speed
-        valid = (
-            active
-            & flow.notna()
-            & allowed_flow.notna()
-            & allowed_flow.gt(0.0)
+
+        active_observations = int(active.sum())
+
+        invalid_active = active & (
+            flow.isna()
+            | ~flow.map(math.isfinite)
+            | speed.isna()
+            | ~speed.map(math.isfinite)
+            | speed.le(0.0)
+            | allowed_flow.isna()
+            | ~allowed_flow.map(math.isfinite)
+            | allowed_flow.le(0.0)
         )
 
-        active_observations = int(valid.sum())
+        if bool(invalid_active.any()):
+            pump_results.append(
+                PumpCurveResult(
+                    pump_name=str(pump_name),
+                    curve_name=curve_name,
+                    evaluable=False,
+                    passed=False,
+                    active_observations=active_observations,
+                    exceedance_observations=0,
+                    curve_maximum_flow_m3s=curve_maximum_flow,
+                    maximum_active_flow_m3s=None,
+                    maximum_allowed_flow_m3s=None,
+                    maximum_flow_ratio=None,
+                    critical_time=invalid_active.idxmax(),
+                )
+            )
+            continue
+
+        valid = active
 
         if active_observations == 0:
             pump_results.append(

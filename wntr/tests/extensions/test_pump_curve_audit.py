@@ -167,3 +167,50 @@ def test_single_point_curve_uses_generated_zero_head_flow():
     assert pump_result.exceedance_observations == 1
     assert not pump_result.passed
     assert not result.all_pumps_passed
+
+def test_active_pump_with_missing_flow_is_not_evaluable():
+    network = _net3()
+
+    result = audit_head_pump_curves(
+        network,
+        _table([0.10, float("nan")], [0.50, 0.80]),
+        status=_table([1, 1], [1, 1]),
+        setting=_table([1.0, 1.0], [1.0, 1.0]),
+    )
+
+    details = {
+        item.pump_name: item
+        for item in result.pump_results
+    }
+    pump_result = details["10"]
+
+    assert not pump_result.evaluable
+    assert not pump_result.passed
+    assert pump_result.active_observations == 2
+    assert pump_result.critical_time == 3600
+    assert not result.all_head_pumps_evaluable
+    assert not result.all_pumps_passed
+
+
+def test_active_pump_with_invalid_speed_is_not_evaluable():
+    network = _net3()
+
+    result = audit_head_pump_curves(
+        network,
+        _table([0.10, 0.10], [0.50, 0.80]),
+        status=_table([1, 1], [1, 1]),
+        setting=_table([1.0, -0.5], [1.0, 1.0]),
+    )
+
+    details = {
+        item.pump_name: item
+        for item in result.pump_results
+    }
+    pump_result = details["10"]
+
+    assert not pump_result.evaluable
+    assert not pump_result.passed
+    assert pump_result.active_observations == 2
+    assert pump_result.critical_time == 3600
+    assert not result.all_head_pumps_evaluable
+    assert not result.all_pumps_passed
