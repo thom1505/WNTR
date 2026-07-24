@@ -252,6 +252,7 @@ def audit_head_pump_curves(
         invalid_active = active & (
             flow.isna()
             | ~flow.map(math.isfinite)
+            | flow.lt(0.0)
             | speed.isna()
             | ~speed.map(math.isfinite)
             | speed.le(0.0)
@@ -298,7 +299,7 @@ def audit_head_pump_curves(
             )
             continue
 
-        active_flow = flow.loc[valid].abs()
+        active_flow = flow.loc[valid]
         active_allowed = allowed_flow.loc[valid]
         ratio = active_flow / active_allowed
 
