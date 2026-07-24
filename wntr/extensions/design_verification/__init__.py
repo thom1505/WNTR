@@ -1,4 +1,4 @@
-﻿"""Hydraulic design-verification extension for WNTR.
+"""Hydraulic design-verification extension for WNTR.
 
 The extension applies proposed pipe designs and hydraulic operating
 scenarios to independent copies of a water network model, runs hydraulic
@@ -17,16 +17,24 @@ from .models import (
     PipeDesign,
     VerificationResult,
 )
+from .pumps import (
+    AllPumpCurveResult,
+    PumpCurveResult,
+    audit_head_pump_curves,
+)
 from .runner import run_design_verification
 from .scenarios import apply_hydraulic_scenario
 
 __all__ = [
+    "AllPumpCurveResult",
     "ConstraintResult",
     "HydraulicScenario",
     "PipeDesign",
+    "PumpCurveResult",
     "VerificationResult",
     "apply_hydraulic_scenario",
     "apply_pipe_design",
+    "audit_head_pump_curves",
     "evaluate_maximum_velocity",
     "evaluate_minimum_pressure",
     "run_design_verification",

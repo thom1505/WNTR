@@ -10,6 +10,7 @@ from wntr.extensions.design_verification import (
     VerificationResult,
     apply_hydraulic_scenario,
     apply_pipe_design,
+    AllPumpCurveResult,
     evaluate_maximum_velocity,
     evaluate_minimum_pressure,
     run_design_verification,
@@ -551,6 +552,58 @@ def test_run_design_verification_returns_feasible_result():
 
     assert "pressure" in results.node
     assert "velocity" in results.link
+
+    assert verification.pump_result is not None
+    assert verification.pump_result.all_pumps_passed
+    assert "pump_curve_audit" in audit
+    assert audit["pump_curve_audit"]["all_pumps_passed"] is True
+
+def test_run_design_verification_includes_pump_failure(
+    monkeypatch,
+):
+    """Include pump-curve failure in overall feasibility."""
+    wn = build_small_network()
+
+    scenario = HydraulicScenario(
+        name="Pump failure",
+        demand_model="DD",
+        duration_s=0,
+        hydraulic_timestep_s=3600,
+        report_timestep_s=3600,
+    )
+
+    failed_pump_result = AllPumpCurveResult(
+        head_pumps_in_network=1,
+        head_pumps_evaluable=1,
+        all_head_pumps_evaluable=True,
+        all_pumps_passed=False,
+        number_of_pumps_exceeding_curves=1,
+        total_curve_exceedance_observations=1,
+        governing_pump_name="PU1",
+        maximum_pump_flow_ratio=1.2,
+        pump_results=(),
+    )
+
+    monkeypatch.setattr(
+        "wntr.extensions.design_verification.runner."
+        "audit_head_pump_curves",
+        lambda **kwargs: failed_pump_result,
+    )
+
+    verification, _, audit = run_design_verification(
+        wn=wn,
+        scenario=scenario,
+        simulator="WNTR",
+        minimum_pressure_m=15.0,
+        maximum_velocity_mps=2.5,
+    )
+
+    assert verification.pressure_result.feasible is True
+    assert verification.velocity_result.feasible is True
+    assert verification.pump_result is failed_pump_result
+    assert verification.pump_result.all_pumps_passed is False
+    assert verification.feasible is False
+    assert audit["pump_curve_audit"]["all_pumps_passed"] is False
 
 
 def test_run_design_verification_applies_pipe_design():

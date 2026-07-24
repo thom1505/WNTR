@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Hashable, Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .pumps import AllPumpCurveResult
 
 
 @dataclass(frozen=True)
@@ -101,11 +105,14 @@ class VerificationResult:
     pressure_result
         Minimum-pressure constraint result.
     velocity_result
-        Maximum-velocity constraint result.
+    Maximum-velocity constraint result.
+    pump_result
+    Head-pump operating-curve audit result, when available.
     feasible
-        Whether both pressure and velocity requirements were met.
+    Whether pressure, velocity and pump operating-curve
+    requirements were met.
     simulation_error_code
-        Simulator error code, when one is supplied by WNTR.
+    Simulator error code, when one is supplied by WNTR.
     """
 
     design_name: str | None
@@ -115,3 +122,4 @@ class VerificationResult:
     velocity_result: ConstraintResult
     feasible: bool
     simulation_error_code: int | None = None
+    pump_result: AllPumpCurveResult | None = None

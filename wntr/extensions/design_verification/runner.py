@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ from .models import (
     PipeDesign,
     VerificationResult,
 )
+from .pumps import audit_head_pump_curves
 from .scenarios import apply_hydraulic_scenario
 
 
@@ -251,6 +253,28 @@ def run_design_verification(
         raise RuntimeError(
             "The simulation did not return link-velocity results."
         ) from error
+    try:
+        flowrate = hydraulic_results.link[
+            "flowrate"
+        ]
+    except (AttributeError, KeyError) as error:
+        raise RuntimeError(
+            "The simulation did not return link-flowrate results."
+        ) from error
+
+    try:
+        status = hydraulic_results.link[
+            "status"
+        ]
+    except (AttributeError, KeyError):
+        status = None
+
+    try:
+        setting = hydraulic_results.link[
+            "setting"
+        ]
+    except (AttributeError, KeyError):
+        setting = None
 
     # Pressure requirements apply to demand junctions, not reservoirs
     # or tanks.
@@ -287,15 +311,24 @@ def run_design_verification(
         ),
     )
 
+    pump_result = audit_head_pump_curves(
+        network=scenario_wn,
+        flowrate=flowrate,
+        status=status,
+        setting=setting,
+    )
+
     verification = VerificationResult(
         design_name=design_name,
         scenario_name=scenario.name.strip(),
         simulator_name=simulator_name,
         pressure_result=pressure_result,
         velocity_result=velocity_result,
+        pump_result=pump_result,
         feasible=bool(
             pressure_result.feasible
             and velocity_result.feasible
+            and pump_result.all_pumps_passed
         ),
         simulation_error_code=(
             _simulation_error_code(
@@ -307,6 +340,9 @@ def run_design_verification(
     audit: dict[str, object] = {
         "design": design_audit,
         "scenario": scenario_audit,
+        "pump_curve_audit": asdict(
+            pump_result
+        ),
         "simulator_name": simulator_name,
         "minimum_pressure_m": float(
             minimum_pressure_m
