@@ -1,4 +1,4 @@
-﻿"""Tests for automatic head-pump operating-curve auditing."""
+"""Tests for automatic head-pump operating-curve auditing."""
 
 from pathlib import Path
 
