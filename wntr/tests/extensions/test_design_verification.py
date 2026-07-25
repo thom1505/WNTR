@@ -1120,3 +1120,118 @@ def test_run_design_verification_with_epanet_pump_audit():
         ]
         is True
     )
+
+
+def test_epanet_pump_curve_exceedance_fails_verification():
+    """Reject EPANET operation beyond the supplied pump-curve domain."""
+    wn = wntr.network.WaterNetworkModel()
+
+    wn.add_reservoir(
+        "R1",
+        base_head=20.0,
+    )
+    wn.add_junction(
+        "J1",
+        base_demand=0.0,
+        elevation=0.0,
+    )
+    wn.add_junction(
+        "J2",
+        base_demand=0.020,
+        elevation=0.0,
+    )
+
+    wn.add_curve(
+        "restricted_curve",
+        "HEAD",
+        [
+            (0.005, 60.0),
+            (0.010, 50.0),
+            (0.015, 40.0),
+        ],
+    )
+    wn.add_pump(
+        "PU1",
+        "R1",
+        "J1",
+        pump_type="HEAD",
+        pump_parameter="restricted_curve",
+    )
+    wn.add_pipe(
+        "L1",
+        start_node_name="J1",
+        end_node_name="J2",
+        length=100.0,
+        diameter=0.200,
+        roughness=120.0,
+        minor_loss=0.0,
+    )
+
+    scenario = HydraulicScenario(
+        name="EPANET pump exceedance",
+        demand_model="DD",
+        duration_s=0,
+        hydraulic_timestep_s=3600,
+        report_timestep_s=3600,
+    )
+
+    verification, results, audit = run_design_verification(
+        wn=wn,
+        scenario=scenario,
+        simulator="EPANET",
+        minimum_pressure_m=0.0,
+        maximum_velocity_mps=5.0,
+    )
+
+    pump_result = verification.pump_result
+
+    assert pump_result is not None
+    assert pump_result.head_pumps_in_network == 1
+    assert pump_result.head_pumps_evaluable == 1
+    assert pump_result.all_head_pumps_evaluable
+    assert not pump_result.all_pumps_passed
+    assert (
+        pump_result.number_of_pumps_exceeding_curves
+        == 1
+    )
+    assert (
+        pump_result.total_curve_exceedance_observations
+        >= 1
+    )
+    assert pump_result.governing_pump_name == "PU1"
+    assert pump_result.maximum_pump_flow_ratio > 1.0
+
+    assert len(pump_result.pump_results) == 1
+
+    pump_detail = pump_result.pump_results[0]
+
+    assert pump_detail.pump_name == "PU1"
+    assert pump_detail.evaluable
+    assert not pump_detail.passed
+    assert pump_detail.exceedance_observations >= 1
+    assert (
+        pump_detail.curve_maximum_flow_m3s
+        == pytest.approx(0.015)
+    )
+    assert pump_detail.maximum_flow_ratio > 1.0
+
+    assert verification.pressure_result.feasible
+    assert verification.velocity_result.feasible
+    assert not verification.feasible
+
+    simulated_flow = results.link["flowrate"]["PU1"].iloc[0]
+
+    assert simulated_flow > 0.015
+
+    assert (
+        audit["pump_curve_audit"][
+            "number_of_pumps_exceeding_curves"
+        ]
+        == 1
+    )
+    assert (
+        audit["pump_curve_audit"][
+            "all_pumps_passed"
+        ]
+        is False
+    )
