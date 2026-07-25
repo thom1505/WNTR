@@ -178,6 +178,89 @@ represented curve domain. It does not assess pump efficiency, energy
 consumption, cavitation, net positive suction head or manufacturer
 selection requirements.
 
+
+Batch verification
+------------------
+
+``run_verification_batch`` evaluates every requested combination of
+pipe design, hydraulic scenario and simulator. It returns a summary
+``pandas.DataFrame`` and a dictionary that can optionally retain the
+hydraulic results from successful experiments.
+
+For example:
+
+.. code-block:: python
+
+   from wntr.extensions.design_verification import (
+       run_verification_batch,
+   )
+
+   summary, hydraulic_results = run_verification_batch(
+       wn=wn,
+       scenarios=[
+           baseline_scenario,
+           peak_demand_scenario,
+       ],
+       designs=[
+           None,
+           candidate_design,
+       ],
+       simulators=(
+           "WNTR",
+           "EPANET",
+       ),
+       minimum_pressure_m=15.0,
+       maximum_velocity_mps=2.5,
+       required_compliance_pct=100.0,
+       continue_on_error=True,
+       retain_hydraulic_results=False,
+   )
+
+   print(summary)
+
+Using ``None`` in ``designs`` assesses the unchanged baseline network.
+When ``designs`` is omitted, only the baseline network is assessed.
+
+Each batch row contains an ``experiment_id`` and
+``configuration_hash`` so that the design, scenario, simulator and
+constraint settings associated with the result can be identified.
+The summary also records hydraulic feasibility, critical pressure and
+velocity information, pump diagnostics and any execution failure.
+
+When ``continue_on_error=True``, an unsuccessful experiment is recorded
+as a failed row and the remaining combinations continue to run. When
+``continue_on_error=False``, the first experiment failure is raised
+immediately.
+
+Setting ``retain_hydraulic_results=True`` stores the hydraulic result
+object for each successful experiment in the returned dictionary,
+indexed by ``experiment_id``. Retaining results can require substantial
+memory for large networks, long simulations or many experiment
+combinations.
+
+Pump feasibility in batch summaries
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``pump_feasible`` field has three possible meanings:
+
+* ``True`` means that one or more head pumps were present and all
+  evaluated pumps remained within the represented curve domain.
+* ``False`` means that one or more head pumps were present and at least
+  one pump exceeded its represented curve domain or could not be
+  evaluated safely.
+* A missing value with ``head_pumps_in_network`` equal to zero means
+  that the network contained no head pumps to assess.
+
+A missing ``pump_feasible`` value together with missing pump-count
+fields normally indicates that the experiment failed before a complete
+pump audit could be produced.
+
+Additional pump-summary fields include
+``head_pumps_evaluable``, ``all_head_pumps_evaluable``,
+``number_of_pumps_exceeding_curves``,
+``total_curve_exceedance_observations``, ``governing_pump_name`` and
+``maximum_pump_flow_ratio``.
+
 Protection of the original network
 ----------------------------------
 
