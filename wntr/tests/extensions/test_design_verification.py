@@ -947,3 +947,66 @@ def test_pdd_pressure_validation_rejects_inherited_invalid_settings():
             wn=wn,
             scenario=scenario,
         )
+
+
+def test_run_design_verification_with_epanet():
+    """Run a complete hydraulic verification using EPANET 2.2."""
+    wn = build_small_network()
+
+    original_diameter = wn.get_link("P1").diameter
+    original_multiplier = (
+        wn.options.hydraulic.demand_multiplier
+    )
+
+    scenario = HydraulicScenario(
+        name="EPANET baseline DD",
+        demand_model="DD",
+        duration_s=0,
+        hydraulic_timestep_s=3600,
+        report_timestep_s=3600,
+    )
+
+    verification, results, audit = run_design_verification(
+        wn=wn,
+        scenario=scenario,
+        simulator="EPANET",
+        minimum_pressure_m=15.0,
+        maximum_velocity_mps=2.5,
+    )
+
+    assert isinstance(
+        verification,
+        VerificationResult,
+    )
+    assert verification.simulator_name == "EPANET"
+    assert verification.scenario_name == "EPANET baseline DD"
+
+    assert verification.pressure_result.feasible is True
+    assert verification.velocity_result.feasible is True
+    assert verification.feasible is True
+
+    assert verification.pressure_result.critical_component == "J1"
+    assert verification.velocity_result.critical_component == "P1"
+
+    assert audit["simulator_name"] == "EPANET"
+    assert audit["junctions_assessed"] == ["J1"]
+    assert audit["pipes_assessed"] == ["P1"]
+
+    assert "pressure" in results.node
+    assert "velocity" in results.link
+    assert "flowrate" in results.link
+
+    assert verification.pump_result is not None
+    assert (
+        verification.pump_result.head_pumps_in_network
+        == 0
+    )
+
+    assert (
+        wn.get_link("P1").diameter
+        == pytest.approx(original_diameter)
+    )
+    assert (
+        wn.options.hydraulic.demand_multiplier
+        == pytest.approx(original_multiplier)
+    )
