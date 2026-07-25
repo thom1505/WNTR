@@ -171,6 +171,48 @@ def _configuration_hash(
     return digest, design_json, scenario_json
 
 
+def _pump_summary_fields(
+    pump_result: Any | None,
+) -> dict[str, object]:
+    """Return batch-summary fields from a pump-curve audit."""
+    if pump_result is None:
+        return {
+            "pump_feasible": None,
+            "head_pumps_in_network": None,
+            "head_pumps_evaluable": None,
+            "all_head_pumps_evaluable": None,
+            "number_of_pumps_exceeding_curves": None,
+            "total_curve_exceedance_observations": None,
+            "governing_pump_name": None,
+            "maximum_pump_flow_ratio": None,
+        }
+
+    return {
+        "pump_feasible": pump_result.all_pumps_passed,
+        "head_pumps_in_network": (
+            pump_result.head_pumps_in_network
+        ),
+        "head_pumps_evaluable": (
+            pump_result.head_pumps_evaluable
+        ),
+        "all_head_pumps_evaluable": (
+            pump_result.all_head_pumps_evaluable
+        ),
+        "number_of_pumps_exceeding_curves": (
+            pump_result.number_of_pumps_exceeding_curves
+        ),
+        "total_curve_exceedance_observations": (
+            pump_result.total_curve_exceedance_observations
+        ),
+        "governing_pump_name": (
+            pump_result.governing_pump_name
+        ),
+        "maximum_pump_flow_ratio": (
+            pump_result.maximum_pump_flow_ratio
+        ),
+    }
+
+
 def _base_row(
     *,
     experiment_id: str,
@@ -410,6 +452,12 @@ def run_verification_batch(
                 }
             )
 
+            row.update(
+                _pump_summary_fields(
+                    verification.pump_result
+                )
+            )
+
             record: dict[str, Any] = {
                 "verification": verification,
                 "audit": audit,
@@ -466,6 +514,10 @@ def run_verification_batch(
                     "error_type": type(error).__name__,
                     "error_message": str(error),
                 }
+            )
+
+            row.update(
+                _pump_summary_fields(None)
             )
 
             records[experiment_id] = {

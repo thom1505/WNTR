@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pandas as pd
+
 import pytest
 import wntr
 
@@ -178,3 +180,74 @@ def test_batch_can_raise_immediately_on_failure():
             maximum_velocity_mps=10.0,
             continue_on_error=False,
         )
+
+
+def test_batch_includes_pump_diagnostics():
+    """Include pump-audit fields in completed batch rows."""
+    wn = build_small_network()
+
+    summary, _ = run_verification_batch(
+        wn=wn,
+        scenarios=[build_scenarios()[0]],
+        simulators="WNTR",
+        minimum_pressure_m=0.0,
+        maximum_velocity_mps=10.0,
+    )
+
+    expected_columns = {
+        "pump_feasible",
+        "head_pumps_in_network",
+        "head_pumps_evaluable",
+        "all_head_pumps_evaluable",
+        "number_of_pumps_exceeding_curves",
+        "total_curve_exceedance_observations",
+        "governing_pump_name",
+        "maximum_pump_flow_ratio",
+    }
+
+    assert expected_columns.issubset(summary.columns)
+
+    row = summary.iloc[0]
+
+    assert bool(row["pump_feasible"])
+    assert row["head_pumps_in_network"] == 0
+    assert row["head_pumps_evaluable"] == 0
+    assert bool(row["all_head_pumps_evaluable"])
+    assert row["number_of_pumps_exceeding_curves"] == 0
+    assert row["total_curve_exceedance_observations"] == 0
+    assert pd.isna(row["governing_pump_name"])
+    assert pd.isna(row["maximum_pump_flow_ratio"])
+
+
+def test_failed_batch_row_has_empty_pump_diagnostics():
+    """Leave pump fields empty when verification cannot run."""
+    wn = build_small_network()
+
+    summary, _ = run_verification_batch(
+        wn=wn,
+        scenarios=[build_scenarios()[0]],
+        simulators=["unsupported"],
+        minimum_pressure_m=0.0,
+        maximum_velocity_mps=10.0,
+        continue_on_error=True,
+    )
+
+    row = summary.iloc[0]
+
+    assert row["status"] == "failed"
+
+    pump_columns = [
+        "pump_feasible",
+        "head_pumps_in_network",
+        "head_pumps_evaluable",
+        "all_head_pumps_evaluable",
+        "number_of_pumps_exceeding_curves",
+        "total_curve_exceedance_observations",
+        "governing_pump_name",
+        "maximum_pump_flow_ratio",
+    ]
+
+    assert all(
+        pd.isna(row[column])
+        for column in pump_columns
+    )
