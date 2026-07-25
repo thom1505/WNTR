@@ -1010,3 +1010,113 @@ def test_run_design_verification_with_epanet():
         wn.options.hydraulic.demand_multiplier
         == pytest.approx(original_multiplier)
     )
+
+
+def test_run_design_verification_with_epanet_pump_audit():
+    """Pass EPANET pump results through the curve-domain audit."""
+    wn = wntr.network.WaterNetworkModel()
+
+    wn.add_reservoir(
+        "R1",
+        base_head=20.0,
+    )
+    wn.add_junction(
+        "J1",
+        base_demand=0.0,
+        elevation=0.0,
+    )
+    wn.add_junction(
+        "J2",
+        base_demand=0.01,
+        elevation=0.0,
+    )
+
+    wn.add_curve(
+        "curve1",
+        "HEAD",
+        [
+            (0.005, 30.0),
+            (0.015, 20.0),
+            (0.030, 0.0),
+        ],
+    )
+    wn.add_pump(
+        "PU1",
+        "R1",
+        "J1",
+        pump_type="HEAD",
+        pump_parameter="curve1",
+    )
+    wn.add_pipe(
+        "L1",
+        start_node_name="J1",
+        end_node_name="J2",
+        length=100.0,
+        diameter=0.150,
+        roughness=100.0,
+        minor_loss=0.0,
+    )
+
+    scenario = HydraulicScenario(
+        name="EPANET pump audit",
+        demand_model="DD",
+        duration_s=0,
+        hydraulic_timestep_s=3600,
+        report_timestep_s=3600,
+    )
+
+    verification, results, audit = run_design_verification(
+        wn=wn,
+        scenario=scenario,
+        simulator="EPANET",
+        minimum_pressure_m=0.0,
+        maximum_velocity_mps=5.0,
+    )
+
+    pump_result = verification.pump_result
+
+    assert pump_result is not None
+    assert pump_result.head_pumps_in_network == 1
+    assert pump_result.head_pumps_evaluable == 1
+    assert pump_result.all_head_pumps_evaluable
+    assert pump_result.all_pumps_passed
+    assert (
+        pump_result.number_of_pumps_exceeding_curves
+        == 0
+    )
+
+    assert len(pump_result.pump_results) == 1
+
+    pump_detail = pump_result.pump_results[0]
+
+    assert pump_detail.pump_name == "PU1"
+    assert pump_detail.evaluable
+    assert pump_detail.passed
+    assert pump_detail.active_observations >= 1
+    assert (
+        pump_detail.curve_maximum_flow_m3s
+        == pytest.approx(0.030)
+    )
+    assert pump_detail.maximum_flow_ratio < 1.0
+
+    assert verification.pressure_result.feasible
+    assert verification.velocity_result.feasible
+    assert verification.feasible
+
+    assert "flowrate" in results.link
+    assert "status" in results.link
+    assert "setting" in results.link
+    assert results.link["flowrate"]["PU1"].iloc[0] > 0.0
+
+    assert (
+        audit["pump_curve_audit"][
+            "head_pumps_in_network"
+        ]
+        == 1
+    )
+    assert (
+        audit["pump_curve_audit"][
+            "all_pumps_passed"
+        ]
+        is True
+    )
