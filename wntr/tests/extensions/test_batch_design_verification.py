@@ -209,7 +209,7 @@ def test_batch_includes_pump_diagnostics():
 
     row = summary.iloc[0]
 
-    assert bool(row["pump_feasible"])
+    assert pd.isna(row["pump_feasible"])
     assert row["head_pumps_in_network"] == 0
     assert row["head_pumps_evaluable"] == 0
     assert bool(row["all_head_pumps_evaluable"])

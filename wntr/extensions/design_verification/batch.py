@@ -188,7 +188,11 @@ def _pump_summary_fields(
         }
 
     return {
-        "pump_feasible": pump_result.all_pumps_passed,
+        "pump_feasible": (
+            None
+            if pump_result.head_pumps_in_network == 0
+            else pump_result.all_pumps_passed
+        ),
         "head_pumps_in_network": (
             pump_result.head_pumps_in_network
         ),
