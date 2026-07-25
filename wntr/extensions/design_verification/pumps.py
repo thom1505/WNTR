@@ -222,9 +222,19 @@ def audit_head_pump_curves(
         )
 
         if pump_status is None:
+            invalid_status = pd.Series(
+                False,
+                index=flowrate.index,
+                dtype=bool,
+            )
             active = flow.notna() & flow.abs().gt(0.0)
         else:
-            active = pump_status.fillna(0.0).gt(0.0)
+            invalid_status = (
+                pump_status.isna()
+                | ~pump_status.map(math.isfinite)
+                | pump_status.lt(0.0)
+            )
+            active = pump_status.gt(0.0) & ~invalid_status
 
         pump_setting = _numeric_series(
             setting,
@@ -249,19 +259,22 @@ def audit_head_pump_curves(
 
         active_observations = int(active.sum())
 
-        invalid_active = active & (
-            flow.isna()
-            | ~flow.map(math.isfinite)
-            | flow.lt(0.0)
-            | speed.isna()
-            | ~speed.map(math.isfinite)
-            | speed.le(0.0)
-            | allowed_flow.isna()
-            | ~allowed_flow.map(math.isfinite)
-            | allowed_flow.le(0.0)
+        invalid_observation = invalid_status | (
+            active
+            & (
+                flow.isna()
+                | ~flow.map(math.isfinite)
+                | flow.lt(0.0)
+                | speed.isna()
+                | ~speed.map(math.isfinite)
+                | speed.le(0.0)
+                | allowed_flow.isna()
+                | ~allowed_flow.map(math.isfinite)
+                | allowed_flow.le(0.0)
+            )
         )
 
-        if bool(invalid_active.any()):
+        if bool(invalid_observation.any()):
             pump_results.append(
                 PumpCurveResult(
                     pump_name=str(pump_name),
@@ -274,7 +287,7 @@ def audit_head_pump_curves(
                     maximum_active_flow_m3s=None,
                     maximum_allowed_flow_m3s=None,
                     maximum_flow_ratio=None,
-                    critical_time=invalid_active.idxmax(),
+                    critical_time=invalid_observation.idxmax(),
                 )
             )
             continue
