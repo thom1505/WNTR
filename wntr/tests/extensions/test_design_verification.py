@@ -861,3 +861,89 @@ def test_apply_hydraulic_scenario_rejects_nonpositive_pressure_exponent(
             wn=wn,
             scenario=scenario,
         )
+
+
+def test_dd_pressure_validation_ignores_inherited_unused_pdd_settings():
+    """Do not reject DD because of unused inherited PDD settings."""
+    wn = build_small_network()
+    wn.options.hydraulic.minimum_pressure = 15.0
+    wn.options.hydraulic.required_pressure = 10.0
+    wn.options.hydraulic.pressure_exponent = 0.0
+
+    scenario = HydraulicScenario(
+        name="DD with unused PDD settings",
+        demand_model="DD",
+    )
+
+    scenario_wn, audit = apply_hydraulic_scenario(
+        wn=wn,
+        scenario=scenario,
+    )
+
+    assert str(
+        scenario_wn.options.hydraulic.demand_model
+    ).upper() in {"DD", "DDA"}
+    assert (
+        scenario_wn.options.hydraulic.minimum_pressure
+        == pytest.approx(15.0)
+    )
+    assert (
+        scenario_wn.options.hydraulic.required_pressure
+        == pytest.approx(10.0)
+    )
+    assert (
+        scenario_wn.options.hydraulic.pressure_exponent
+        == pytest.approx(0.0)
+    )
+    assert (
+        audit["applied_settings"]["minimum_pressure_m"]
+        == pytest.approx(15.0)
+    )
+
+
+def test_dd_pressure_validation_rejects_explicit_invalid_pdd_settings():
+    """Validate PDD settings explicitly supplied to a DD scenario."""
+    wn = build_small_network()
+
+    scenario = HydraulicScenario(
+        name="DD with invalid requested PDD settings",
+        demand_model="DD",
+        minimum_pressure_m=15.0,
+        required_pressure_m=10.0,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "required_pressure_m must be greater than "
+            "minimum_pressure_m"
+        ),
+    ):
+        apply_hydraulic_scenario(
+            wn=wn,
+            scenario=scenario,
+        )
+
+
+def test_pdd_pressure_validation_rejects_inherited_invalid_settings():
+    """Validate inherited pressure settings for PDD simulation."""
+    wn = build_small_network()
+    wn.options.hydraulic.minimum_pressure = 15.0
+    wn.options.hydraulic.required_pressure = 10.0
+
+    scenario = HydraulicScenario(
+        name="PDD with invalid inherited settings",
+        demand_model="PDD",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "required_pressure_m must be greater than "
+            "minimum_pressure_m"
+        ),
+    ):
+        apply_hydraulic_scenario(
+            wn=wn,
+            scenario=scenario,
+        )

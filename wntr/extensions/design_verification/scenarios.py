@@ -202,6 +202,20 @@ def apply_hydraulic_scenario(
         ),
     }
 
+
+    pressure_settings_requested = any(
+        value is not None
+        for value in (
+            scenario.minimum_pressure_m,
+            scenario.required_pressure_m,
+            scenario.pressure_exponent,
+        )
+    )
+    validate_pressure_settings = (
+        demand_model == "PDD"
+        or pressure_settings_requested
+    )
+
     if scenario.minimum_pressure_m is None:
         minimum_pressure_m = old_settings[
             "minimum_pressure_m"
@@ -211,12 +225,6 @@ def apply_hydraulic_scenario(
             value=scenario.minimum_pressure_m,
             parameter_name="minimum_pressure_m",
         )
-
-        if minimum_pressure_m < 0.0:
-            raise ValueError(
-                "minimum_pressure_m must be greater than or equal "
-                "to zero."
-            )
 
     if scenario.required_pressure_m is None:
         required_pressure_m = old_settings[
@@ -228,11 +236,6 @@ def apply_hydraulic_scenario(
             parameter_name="required_pressure_m",
         )
 
-        if required_pressure_m < 0.0:
-            raise ValueError(
-                "required_pressure_m must be greater than or equal "
-                "to zero."
-            )
     if scenario.pressure_exponent is None:
         pressure_exponent = old_settings[
             "pressure_exponent"
@@ -243,16 +246,42 @@ def apply_hydraulic_scenario(
             parameter_name="pressure_exponent",
         )
 
+    if validate_pressure_settings:
+        minimum_pressure_m = _finite_float(
+            value=minimum_pressure_m,
+            parameter_name="minimum_pressure_m",
+        )
+        required_pressure_m = _finite_float(
+            value=required_pressure_m,
+            parameter_name="required_pressure_m",
+        )
+        pressure_exponent = _finite_float(
+            value=pressure_exponent,
+            parameter_name="pressure_exponent",
+        )
+
+        if minimum_pressure_m < 0.0:
+            raise ValueError(
+                "minimum_pressure_m must be greater than or equal "
+                "to zero."
+            )
+
+        if required_pressure_m < 0.0:
+            raise ValueError(
+                "required_pressure_m must be greater than or equal "
+                "to zero."
+            )
+
         if pressure_exponent <= 0.0:
             raise ValueError(
                 "pressure_exponent must be greater than zero."
             )
 
-    if required_pressure_m <= minimum_pressure_m:
-        raise ValueError(
-            "required_pressure_m must be greater than "
-            "minimum_pressure_m."
-        )
+        if required_pressure_m <= minimum_pressure_m:
+            raise ValueError(
+                "required_pressure_m must be greater than "
+                "minimum_pressure_m."
+            )
 
     scenario_wn.options.hydraulic.demand_multiplier = (
         demand_multiplier
