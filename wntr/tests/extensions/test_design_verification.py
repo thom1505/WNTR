@@ -764,3 +764,100 @@ def test_run_design_verification_rejects_unknown_simulator():
             scenario=scenario,
             simulator="UNKNOWN",
         )
+
+
+def test_apply_hydraulic_scenario_applies_pressure_exponent():
+    """Apply and audit a custom pressure exponent."""
+    wn = build_small_network()
+    original_pressure_exponent = (
+        wn.options.hydraulic.pressure_exponent
+    )
+
+    scenario = HydraulicScenario(
+        name="Custom PDD exponent",
+        demand_model="PDD",
+        minimum_pressure_m=0.0,
+        required_pressure_m=15.0,
+        pressure_exponent=0.65,
+    )
+
+    scenario_wn, audit = apply_hydraulic_scenario(
+        wn=wn,
+        scenario=scenario,
+    )
+
+    assert (
+        scenario_wn.options.hydraulic.pressure_exponent
+        == pytest.approx(0.65)
+    )
+    assert (
+        wn.options.hydraulic.pressure_exponent
+        == pytest.approx(original_pressure_exponent)
+    )
+    assert (
+        audit["original_settings"]["pressure_exponent"]
+        == pytest.approx(original_pressure_exponent)
+    )
+    assert (
+        audit["applied_settings"]["pressure_exponent"]
+        == pytest.approx(0.65)
+    )
+
+
+def test_apply_hydraulic_scenario_preserves_pressure_exponent_when_omitted():
+    """Preserve the existing exponent when none is requested."""
+    wn = build_small_network()
+    wn.options.hydraulic.pressure_exponent = 0.70
+
+    scenario = HydraulicScenario(
+        name="Existing PDD exponent",
+        demand_model="PDD",
+        minimum_pressure_m=0.0,
+        required_pressure_m=15.0,
+    )
+
+    scenario_wn, audit = apply_hydraulic_scenario(
+        wn=wn,
+        scenario=scenario,
+    )
+
+    assert (
+        scenario_wn.options.hydraulic.pressure_exponent
+        == pytest.approx(0.70)
+    )
+    assert (
+        audit["original_settings"]["pressure_exponent"]
+        == pytest.approx(0.70)
+    )
+    assert (
+        audit["applied_settings"]["pressure_exponent"]
+        == pytest.approx(0.70)
+    )
+
+
+@pytest.mark.parametrize(
+    "pressure_exponent",
+    [0.0, -0.5],
+)
+def test_apply_hydraulic_scenario_rejects_nonpositive_pressure_exponent(
+    pressure_exponent,
+):
+    """Reject zero and negative pressure exponents."""
+    wn = build_small_network()
+
+    scenario = HydraulicScenario(
+        name="Invalid pressure exponent",
+        demand_model="PDD",
+        minimum_pressure_m=0.0,
+        required_pressure_m=15.0,
+        pressure_exponent=pressure_exponent,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="pressure_exponent must be greater than zero",
+    ):
+        apply_hydraulic_scenario(
+            wn=wn,
+            scenario=scenario,
+        )

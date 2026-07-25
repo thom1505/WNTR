@@ -197,6 +197,9 @@ def apply_hydraulic_scenario(
         "required_pressure_m": float(
             scenario_wn.options.hydraulic.required_pressure
         ),
+        "pressure_exponent": float(
+            scenario_wn.options.hydraulic.pressure_exponent
+        ),
     }
 
     if scenario.minimum_pressure_m is None:
@@ -230,6 +233,20 @@ def apply_hydraulic_scenario(
                 "required_pressure_m must be greater than or equal "
                 "to zero."
             )
+    if scenario.pressure_exponent is None:
+        pressure_exponent = old_settings[
+            "pressure_exponent"
+        ]
+    else:
+        pressure_exponent = _finite_float(
+            value=scenario.pressure_exponent,
+            parameter_name="pressure_exponent",
+        )
+
+        if pressure_exponent <= 0.0:
+            raise ValueError(
+                "pressure_exponent must be greater than zero."
+            )
 
     if required_pressure_m <= minimum_pressure_m:
         raise ValueError(
@@ -256,6 +273,9 @@ def apply_hydraulic_scenario(
     scenario_wn.options.hydraulic.required_pressure = (
         required_pressure_m
     )
+    scenario_wn.options.hydraulic.pressure_exponent = (
+        pressure_exponent
+    )
 
     new_settings = {
         "demand_multiplier": float(
@@ -278,6 +298,9 @@ def apply_hydraulic_scenario(
         ),
         "required_pressure_m": float(
             scenario_wn.options.hydraulic.required_pressure
+        ),
+        "pressure_exponent": float(
+            scenario_wn.options.hydraulic.pressure_exponent
         ),
     }
 

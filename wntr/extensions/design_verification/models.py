@@ -77,6 +77,9 @@ class HydraulicScenario:
     required_pressure_m
         Optional global required pressure for pressure-dependent
         demand analysis, in metres.
+    pressure_exponent
+    Optional global pressure exponent for pressure-dependent demand
+    analysis. When omitted, the network's existing setting is preserved.
     """
 
     name: str
@@ -87,6 +90,8 @@ class HydraulicScenario:
     report_timestep_s: int = 3600
     minimum_pressure_m: float | None = None
     required_pressure_m: float | None = None
+    pressure_exponent: float | None = None
+
 
 
 @dataclass(frozen=True)
