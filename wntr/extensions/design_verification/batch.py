@@ -307,8 +307,9 @@ def run_verification_batch(
     required_compliance_pct
         Required pressure and velocity compliance percentage.
     continue_on_error
-        Record failed experiments and continue when ``True``. Re-raise
-        the first exception when ``False``.
+        Record experiment failures during configuration preparation,
+        hydraulic simulation or result processing and continue when
+        ``True``. Re-raise the first exception when ``False``.
     retain_hydraulic_results
         Retain raw hydraulic result objects in the returned records.
 
@@ -343,31 +344,39 @@ def run_verification_batch(
         scenario,
         simulator,
     ) in enumerate(combinations, start=1):
-        (
-            configuration_hash,
-            design_json,
-            scenario_json,
-        ) = _configuration_hash(
-            design=design,
-            scenario=scenario,
-            simulator=simulator,
-            minimum_pressure_m=minimum_pressure_m,
-            maximum_velocity_mps=maximum_velocity_mps,
-            required_compliance_pct=required_compliance_pct,
-        )
-
-        experiment_id = (
-            f"dv-{experiment_number:05d}-"
-            f"{configuration_hash[:12]}"
-        )
-
         started_at_utc = datetime.now(
             timezone.utc
         ).isoformat()
 
         started = time.perf_counter()
 
+        configuration_hash = "unavailable"
+        design_json = None
+        scenario_json = None
+        experiment_id = (
+            f"dv-{experiment_number:05d}-unavailable"
+        )
+
         try:
+            (
+                configuration_hash,
+                design_json,
+                scenario_json,
+            ) = _configuration_hash(
+                design=design,
+                scenario=scenario,
+                simulator=simulator,
+                minimum_pressure_m=minimum_pressure_m,
+                maximum_velocity_mps=maximum_velocity_mps,
+                required_compliance_pct=(
+                    required_compliance_pct
+                ),
+            )
+
+            experiment_id = (
+                f"dv-{experiment_number:05d}-"
+                f"{configuration_hash[:12]}"
+            )
             (
                 verification,
                 hydraulic_results,

@@ -6,6 +6,7 @@ import pandas as pd
 
 import pytest
 import wntr
+import wntr.extensions.design_verification.batch as batch_module
 
 from wntr.extensions.design_verification import (
     HydraulicScenario,
@@ -162,6 +163,124 @@ def test_batch_records_failure_and_continues():
 
     assert failed_record["verification"] is None
     assert failed_record["error"]["type"] == "ValueError"
+
+
+
+def test_batch_records_hash_failure_and_continues(
+    monkeypatch,
+):
+    """Record a hash failure and continue with the next experiment."""
+    wn = build_small_network()
+
+    original_configuration_hash = (
+        batch_module._configuration_hash
+    )
+    call_count = 0
+
+    def fail_first_configuration_hash(**kwargs):
+        nonlocal call_count
+        call_count += 1
+
+        if call_count == 1:
+            raise RuntimeError(
+                "configuration hash failed"
+            )
+
+        return original_configuration_hash(**kwargs)
+
+    monkeypatch.setattr(
+        batch_module,
+        "_configuration_hash",
+        fail_first_configuration_hash,
+    )
+
+    summary, records = run_verification_batch(
+        wn=wn,
+        scenarios=build_scenarios(),
+        simulators="WNTR",
+        minimum_pressure_m=0.0,
+        maximum_velocity_mps=10.0,
+        continue_on_error=True,
+    )
+
+    assert len(summary) == 2
+    assert list(summary["status"]) == [
+        "failed",
+        "completed",
+    ]
+
+    failed_row = summary.iloc[0]
+
+    assert (
+        failed_row["experiment_id"]
+        == "dv-00001-unavailable"
+    )
+    assert (
+        failed_row["configuration_hash"]
+        == "unavailable"
+    )
+    assert failed_row["error_type"] == "RuntimeError"
+    assert (
+        failed_row["error_message"]
+        == "configuration hash failed"
+    )
+
+    failed_record = records[
+        failed_row["experiment_id"]
+    ]
+
+    assert failed_record["verification"] is None
+    assert failed_record["audit"] is None
+    assert (
+        failed_record["error"]["type"]
+        == "RuntimeError"
+    )
+    assert (
+        failed_record["error"]["message"]
+        == "configuration hash failed"
+    )
+
+    completed_row = summary.iloc[1]
+
+    assert completed_row["status"] == "completed"
+    assert completed_row["experiment_id"].startswith(
+        "dv-00002-"
+    )
+    assert (
+        completed_row["experiment_id"]
+        != "dv-00002-unavailable"
+    )
+
+
+def test_batch_reraises_hash_failure_when_requested(
+    monkeypatch,
+):
+    """Re-raise configuration-hash failures when requested."""
+    wn = build_small_network()
+
+    def fail_configuration_hash(**kwargs):
+        raise RuntimeError(
+            "configuration hash failed"
+        )
+
+    monkeypatch.setattr(
+        batch_module,
+        "_configuration_hash",
+        fail_configuration_hash,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="configuration hash failed",
+    ):
+        run_verification_batch(
+            wn=wn,
+            scenarios=[build_scenarios()[0]],
+            simulators="WNTR",
+            minimum_pressure_m=0.0,
+            maximum_velocity_mps=10.0,
+            continue_on_error=False,
+        )
 
 
 def test_batch_can_raise_immediately_on_failure():

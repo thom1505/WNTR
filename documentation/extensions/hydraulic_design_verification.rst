@@ -227,8 +227,12 @@ constraint settings associated with the result can be identified.
 The summary also records hydraulic feasibility, critical pressure and
 velocity information, pump diagnostics and any execution failure.
 
-When ``continue_on_error=True``, an unsuccessful experiment is recorded
-as a failed row and the remaining combinations continue to run. When
+When ``continue_on_error=True``, a failure during configuration
+preparation, hydraulic simulation or result processing is recorded as
+a failed row and the remaining combinations continue to run. If
+configuration preparation fails before a hash can be generated, the
+row uses ``unavailable`` for ``configuration_hash`` and an
+``experiment_id`` ending in ``-unavailable``. When
 ``continue_on_error=False``, the first experiment failure is raised
 immediately.
 
