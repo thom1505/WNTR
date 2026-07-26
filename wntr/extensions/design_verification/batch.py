@@ -140,8 +140,18 @@ def _canonical_json(value: object) -> str:
     )
 
 
+def _network_hash(
+    wn: WaterNetworkModel,
+) -> str:
+    """Fingerprint the serialized water-network model deterministically."""
+    return hashlib.sha256(
+        _canonical_json(wn.to_dict()).encode("utf-8")
+    ).hexdigest()
+
+
 def _configuration_hash(
     *,
+    network_hash: str,
     design: PipeDesign | None,
     scenario: HydraulicScenario,
     simulator: str,
@@ -154,6 +164,7 @@ def _configuration_hash(
     scenario_json = _canonical_json(_scenario_payload(scenario))
 
     payload = {
+        "network_hash": network_hash,
         "design": json.loads(design_json),
         "scenario": json.loads(scenario_json),
         "simulator": simulator.strip().upper(),
@@ -221,11 +232,12 @@ def _base_row(
     *,
     experiment_id: str,
     configuration_hash: str,
+    network_hash: str,
     design: PipeDesign | None,
     scenario: HydraulicScenario,
     simulator: str,
-    design_json: str,
-    scenario_json: str,
+    design_json: str | None,
+    scenario_json: str | None,
     started_at_utc: str,
     elapsed_s: float,
     minimum_pressure_m: float,
@@ -236,6 +248,7 @@ def _base_row(
     return {
         "experiment_id": experiment_id,
         "configuration_hash": configuration_hash,
+        "network_hash": network_hash,
         "status": None,
         "started_at_utc": started_at_utc,
         "elapsed_s": elapsed_s,
@@ -332,6 +345,7 @@ def run_verification_batch(
 
     rows: list[dict[str, object]] = []
     records: dict[str, dict[str, Any]] = {}
+    network_hash_cache: str | None = None
 
     combinations = product(
         design_values,
@@ -350,6 +364,7 @@ def run_verification_batch(
 
         started = time.perf_counter()
 
+        network_hash = "unavailable"
         configuration_hash = "unavailable"
         design_json = None
         scenario_json = None
@@ -358,11 +373,17 @@ def run_verification_batch(
         )
 
         try:
+            if network_hash_cache is None:
+                network_hash_cache = _network_hash(wn)
+
+            network_hash = network_hash_cache
+
             (
                 configuration_hash,
                 design_json,
                 scenario_json,
             ) = _configuration_hash(
+                network_hash=network_hash,
                 design=design,
                 scenario=scenario,
                 simulator=simulator,
@@ -398,6 +419,7 @@ def run_verification_batch(
             row = _base_row(
                 experiment_id=experiment_id,
                 configuration_hash=configuration_hash,
+                network_hash=network_hash,
                 design=design,
                 scenario=scenario,
                 simulator=verification.simulator_name,
@@ -493,6 +515,7 @@ def run_verification_batch(
             row = _base_row(
                 experiment_id=experiment_id,
                 configuration_hash=configuration_hash,
+                network_hash=network_hash,
                 design=design,
                 scenario=scenario,
                 simulator=simulator,

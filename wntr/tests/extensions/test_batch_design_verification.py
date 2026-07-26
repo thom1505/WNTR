@@ -166,6 +166,152 @@ def test_batch_records_failure_and_continues():
 
 
 
+
+def test_network_hash_is_stable_for_equivalent_networks():
+    """Equivalent independently built networks have the same hash."""
+    wn_one = build_small_network()
+    wn_two = build_small_network()
+
+    assert (
+        batch_module._network_hash(wn_one)
+        == batch_module._network_hash(wn_two)
+    )
+
+
+def test_network_hash_changes_with_network_configuration():
+    """A network-property change produces a different fingerprint."""
+    wn_one = build_small_network()
+    wn_two = build_small_network()
+
+    wn_two.get_link("P1").diameter = 0.200
+
+    assert (
+        batch_module._network_hash(wn_one)
+        != batch_module._network_hash(wn_two)
+    )
+
+
+def test_batch_configuration_hash_includes_network_hash():
+    """Different networks produce different batch configuration hashes."""
+    wn_one = build_small_network()
+    wn_two = build_small_network()
+
+    wn_two.get_link("P1").diameter = 0.200
+
+    summary_one, _ = run_verification_batch(
+        wn=wn_one,
+        scenarios=[build_scenarios()[0]],
+        simulators="WNTR",
+        minimum_pressure_m=0.0,
+        maximum_velocity_mps=10.0,
+    )
+
+    summary_two, _ = run_verification_batch(
+        wn=wn_two,
+        scenarios=[build_scenarios()[0]],
+        simulators="WNTR",
+        minimum_pressure_m=0.0,
+        maximum_velocity_mps=10.0,
+    )
+
+    row_one = summary_one.iloc[0]
+    row_two = summary_two.iloc[0]
+
+    assert row_one["network_hash"] != row_two["network_hash"]
+    assert (
+        row_one["configuration_hash"]
+        != row_two["configuration_hash"]
+    )
+
+
+
+
+def test_batch_records_network_hash_failure_and_continues(
+    monkeypatch,
+):
+    """Record a network-hash failure and continue the batch."""
+    wn = build_small_network()
+
+    original_network_hash = batch_module._network_hash
+    call_count = 0
+
+    def fail_first_network_hash(network):
+        nonlocal call_count
+        call_count += 1
+
+        if call_count == 1:
+            raise RuntimeError(
+                "network hash failed"
+            )
+
+        return original_network_hash(network)
+
+    monkeypatch.setattr(
+        batch_module,
+        "_network_hash",
+        fail_first_network_hash,
+    )
+
+    summary, records = run_verification_batch(
+        wn=wn,
+        scenarios=build_scenarios(),
+        simulators="WNTR",
+        minimum_pressure_m=0.0,
+        maximum_velocity_mps=10.0,
+        continue_on_error=True,
+    )
+
+    assert len(summary) == 2
+    assert list(summary["status"]) == [
+        "failed",
+        "completed",
+    ]
+
+    failed_row = summary.iloc[0]
+
+    assert (
+        failed_row["experiment_id"]
+        == "dv-00001-unavailable"
+    )
+    assert failed_row["network_hash"] == "unavailable"
+    assert (
+        failed_row["configuration_hash"]
+        == "unavailable"
+    )
+    assert failed_row["error_type"] == "RuntimeError"
+    assert (
+        failed_row["error_message"]
+        == "network hash failed"
+    )
+
+    failed_record = records[
+        failed_row["experiment_id"]
+    ]
+
+    assert failed_record["verification"] is None
+    assert failed_record["audit"] is None
+    assert (
+        failed_record["error"]["type"]
+        == "RuntimeError"
+    )
+
+    completed_row = summary.iloc[1]
+
+    assert completed_row["status"] == "completed"
+    assert (
+        completed_row["network_hash"]
+        != "unavailable"
+    )
+    assert (
+        completed_row["configuration_hash"]
+        != "unavailable"
+    )
+    assert completed_row["experiment_id"].startswith(
+        "dv-00002-"
+    )
+
+
+
 def test_batch_records_hash_failure_and_continues(
     monkeypatch,
 ):

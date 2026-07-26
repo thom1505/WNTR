@@ -221,11 +221,15 @@ For example:
 Using ``None`` in ``designs`` assesses the unchanged baseline network.
 When ``designs`` is omitted, only the baseline network is assessed.
 
-Each batch row contains an ``experiment_id`` and
-``configuration_hash`` so that the design, scenario, simulator and
-constraint settings associated with the result can be identified.
-The summary also records hydraulic feasibility, critical pressure and
-velocity information, pump diagnostics and any execution failure.
+Each batch row contains an ``experiment_id``, ``network_hash`` and
+``configuration_hash``. The ``network_hash`` is a deterministic
+fingerprint of the serialized input water-network model. The
+``configuration_hash`` includes that network identity together with
+the design, scenario, simulator and constraint settings. Consequently,
+otherwise identical experiments on different network models receive
+different configuration hashes. The summary also records hydraulic
+feasibility, critical pressure and velocity information, pump
+diagnostics and any execution failure.
 
 When ``continue_on_error=True``, a failure during configuration
 preparation, hydraulic simulation or result processing is recorded as
