@@ -268,6 +268,14 @@ Pipe-design and hydraulic-scenario changes are applied to independent
 network copies. The original ``WaterNetworkModel`` supplied to
 ``run_design_verification`` is therefore preserved.
 
+Complete hydraulic results are required for verification. Pressure
+results must include every junction in the assessed network, and
+velocity results must include every pipe. Missing or duplicated
+required result columns cause the verification run to fail without
+returning a hydraulic feasibility decision. Extra result columns for
+reservoirs, tanks, pumps, or valves are permitted and are excluded from
+the corresponding junction-pressure and pipe-velocity assessments.
+
 Limitations
 -----------
 

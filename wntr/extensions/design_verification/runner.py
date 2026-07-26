@@ -55,25 +55,66 @@ def _select_result_columns(
     component_names: list[str],
     result_name: str,
 ):
-    """Select available network components from a results table."""
+    """Select complete results for all required network components."""
     if not hasattr(table, "columns"):
         raise TypeError(
             f"{result_name} results must be a pandas DataFrame."
         )
 
-    selected_names = [
-        name
-        for name in component_names
-        if name in table.columns
-    ]
+    required_names = list(dict.fromkeys(component_names))
 
-    if not selected_names:
+    if not required_names:
         raise ValueError(
-            f"No applicable components were found in the "
-            f"{result_name} results."
+            f"No applicable components exist for {result_name} "
+            "verification."
         )
 
-    return table.loc[:, selected_names]
+    duplicate_columns = set(
+        table.columns[
+            table.columns.duplicated(keep=False)
+        ]
+    )
+
+    duplicated_required = [
+        name
+        for name in required_names
+        if name in duplicate_columns
+    ]
+
+    if duplicated_required:
+        names = ", ".join(
+            repr(name)
+            for name in duplicated_required
+        )
+        raise RuntimeError(
+            f"The {result_name} results contain duplicate "
+            f"columns for required components: {names}."
+        )
+
+    missing_names = [
+        name
+        for name in required_names
+        if name not in table.columns
+    ]
+
+    if missing_names:
+        preview_limit = 10
+        preview = ", ".join(
+            repr(name)
+            for name in missing_names[:preview_limit]
+        )
+        remaining = len(missing_names) - preview_limit
+
+        if remaining > 0:
+            preview += f", and {remaining} more"
+
+        raise RuntimeError(
+            f"The {result_name} results are missing "
+            f"{len(missing_names)} required component(s): "
+            f"{preview}."
+        )
+
+    return table.loc[:, required_names]
 
 
 def _simulation_error_code(results: Any) -> int | None:
@@ -353,8 +394,20 @@ def run_design_verification(
         "required_compliance_pct": float(
             required_compliance_pct
         ),
+        "expected_junction_count": len(
+            scenario_wn.junction_name_list
+        ),
+        "assessed_junction_count": len(
+            junction_pressure.columns
+        ),
         "junctions_assessed": list(
             junction_pressure.columns
+        ),
+        "expected_pipe_count": len(
+            scenario_wn.pipe_name_list
+        ),
+        "assessed_pipe_count": len(
+            pipe_velocity.columns
         ),
         "pipes_assessed": list(
             pipe_velocity.columns

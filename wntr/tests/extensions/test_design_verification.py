@@ -15,7 +15,104 @@ from wntr.extensions.design_verification import (
     evaluate_minimum_pressure,
     run_design_verification,
 )
+from wntr.extensions.design_verification.runner import (
+    _select_result_columns,
+)
+
 pytestmark = pytest.mark.extensions
+
+def test_select_result_columns_rejects_missing_component():
+    """Reject pressure results that omit a required junction."""
+    pressure = pd.DataFrame(
+        {
+            "J1": [20.0, 19.0],
+        },
+        index=[0, 3600],
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"pressure.*J2",
+    ):
+        _select_result_columns(
+            table=pressure,
+            component_names=["J1", "J2"],
+            result_name="pressure",
+        )
+
+
+def test_select_result_columns_rejects_missing_pipe():
+    """Reject velocity results that omit a required pipe."""
+    velocity = pd.DataFrame(
+        {
+            "P1": [0.5, 0.7],
+        },
+        index=[0, 3600],
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"velocity.*P2",
+    ):
+        _select_result_columns(
+            table=velocity,
+            component_names=["P1", "P2"],
+            result_name="velocity",
+        )
+
+
+def test_select_result_columns_allows_extra_columns():
+    """Allow unrelated columns and preserve required component order."""
+    results = pd.DataFrame(
+        {
+            "Reservoir": [0.0],
+            "J2": [18.0],
+            "J1": [20.0],
+        },
+        index=[0],
+    )
+
+    selected = _select_result_columns(
+        table=results,
+        component_names=["J1", "J2"],
+        result_name="pressure",
+    )
+
+    assert list(selected.columns) == ["J1", "J2"]
+
+
+def test_select_result_columns_rejects_duplicate_component():
+    """Reject duplicate columns for a required component."""
+    results = pd.DataFrame(
+        [[20.0, 21.0]],
+        columns=["J1", "J1"],
+        index=[0],
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"duplicate.*J1",
+    ):
+        _select_result_columns(
+            table=results,
+            component_names=["J1"],
+            result_name="pressure",
+        )
+
+
+def test_select_result_columns_rejects_empty_expected_components():
+    """Reject verification when no applicable components exist."""
+    results = pd.DataFrame(index=[0])
+
+    with pytest.raises(
+        ValueError,
+        match="No applicable components",
+    ):
+        _select_result_columns(
+            table=results,
+            component_names=[],
+            result_name="pressure",
+        )
 
 
 def test_minimum_pressure_summary():
@@ -512,6 +609,181 @@ def test_apply_hydraulic_scenario_rejects_pressure_inconsistency():
             scenario=scenario,
         )
 
+
+def test_run_design_verification_rejects_incomplete_pressure_results(
+    monkeypatch,
+):
+    """Reject a run when a required junction pressure is missing."""
+    wn = build_small_network()
+    wn.add_junction(
+        "J2",
+        base_demand=0.005,
+        demand_pattern=None,
+        elevation=10.0,
+        coordinates=(200.0, 0.0),
+    )
+    wn.add_pipe(
+        "P2",
+        start_node_name="J1",
+        end_node_name="J2",
+        length=100.0,
+        diameter=0.150,
+        roughness=100.0,
+        minor_loss=0.0,
+    )
+
+    scenario = HydraulicScenario(
+        name="Incomplete pressure results",
+        demand_model="DD",
+        duration_s=0,
+        hydraulic_timestep_s=3600,
+        report_timestep_s=3600,
+    )
+
+    class FakeResults:
+        error_code = None
+        node = {
+            "pressure": pd.DataFrame(
+                {
+                    "J1": [20.0],
+                },
+                index=[0],
+            ),
+        }
+        link = {
+            "velocity": pd.DataFrame(
+                {
+                    "P1": [0.5],
+                    "P2": [0.6],
+                },
+                index=[0],
+            ),
+            "flowrate": pd.DataFrame(
+                {
+                    "P1": [0.01],
+                    "P2": [0.005],
+                },
+                index=[0],
+            ),
+            "status": pd.DataFrame(
+                index=[0],
+            ),
+            "setting": pd.DataFrame(
+                index=[0],
+            ),
+        }
+
+    class FakeSimulator:
+        def __init__(self, network):
+            self.network = network
+
+        def run_sim(self, **kwargs):
+            return FakeResults()
+
+    monkeypatch.setattr(
+        "wntr.extensions.design_verification.runner.WNTRSimulator",
+        FakeSimulator,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"pressure.*J2",
+    ):
+        run_design_verification(
+            wn=wn,
+            scenario=scenario,
+            simulator="WNTR",
+            minimum_pressure_m=15.0,
+            maximum_velocity_mps=2.5,
+        )
+
+
+def test_run_design_verification_rejects_incomplete_velocity_results(
+    monkeypatch,
+):
+    """Reject a run when a required pipe velocity is missing."""
+    wn = build_small_network()
+    wn.add_junction(
+        "J2",
+        base_demand=0.005,
+        demand_pattern=None,
+        elevation=10.0,
+        coordinates=(200.0, 0.0),
+    )
+    wn.add_pipe(
+        "P2",
+        start_node_name="J1",
+        end_node_name="J2",
+        length=100.0,
+        diameter=0.150,
+        roughness=100.0,
+        minor_loss=0.0,
+    )
+
+    scenario = HydraulicScenario(
+        name="Incomplete velocity results",
+        demand_model="DD",
+        duration_s=0,
+        hydraulic_timestep_s=3600,
+        report_timestep_s=3600,
+    )
+
+    class FakeResults:
+        error_code = None
+        node = {
+            "pressure": pd.DataFrame(
+                {
+                    "J1": [20.0],
+                    "J2": [19.0],
+                },
+                index=[0],
+            ),
+        }
+        link = {
+            "velocity": pd.DataFrame(
+                {
+                    "P1": [0.5],
+                },
+                index=[0],
+            ),
+            "flowrate": pd.DataFrame(
+                {
+                    "P1": [0.01],
+                    "P2": [0.005],
+                },
+                index=[0],
+            ),
+            "status": pd.DataFrame(
+                index=[0],
+            ),
+            "setting": pd.DataFrame(
+                index=[0],
+            ),
+        }
+
+    class FakeSimulator:
+        def __init__(self, network):
+            self.network = network
+
+        def run_sim(self, **kwargs):
+            return FakeResults()
+
+    monkeypatch.setattr(
+        "wntr.extensions.design_verification.runner.WNTRSimulator",
+        FakeSimulator,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"velocity.*P2",
+    ):
+        run_design_verification(
+            wn=wn,
+            scenario=scenario,
+            simulator="WNTR",
+            minimum_pressure_m=15.0,
+            maximum_velocity_mps=2.5,
+        )
 def test_run_design_verification_returns_feasible_result():
     """Run a complete feasible hydraulic verification."""
     wn = build_small_network()
@@ -549,6 +821,10 @@ def test_run_design_verification_returns_feasible_result():
 
     assert audit["junctions_assessed"] == ["J1"]
     assert audit["pipes_assessed"] == ["P1"]
+    assert audit["expected_junction_count"] == 1
+    assert audit["assessed_junction_count"] == 1
+    assert audit["expected_pipe_count"] == 1
+    assert audit["assessed_pipe_count"] == 1
 
     assert "pressure" in results.node
     assert "velocity" in results.link
