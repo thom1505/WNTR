@@ -103,6 +103,8 @@ The following example assumes that ``wn`` is an existing
        minimum_pressure_m=15.0,
        maximum_velocity_mps=2.5,
        required_compliance_pct=100.0,
+       pressure_tolerance_m=1.0e-6,
+       velocity_tolerance_mps=1.0e-8,
    )
 
    print(verification.feasible)
@@ -110,6 +112,32 @@ The following example assumes that ``wn`` is an existing
    print(verification.velocity_result)
    print(verification.pump_result)
    print(audit)
+
+Numerical tolerances
+--------------------
+
+Floating-point simulation results can differ from an engineering
+constraint by a very small numerical amount. Optional tolerances can
+therefore be applied at the pressure and velocity boundaries.
+
+A junction-pressure observation is compliant when::
+
+   pressure >= minimum_pressure_m - pressure_tolerance_m
+
+A pipe-velocity observation is compliant when::
+
+   abs(velocity) <= maximum_velocity_mps + velocity_tolerance_mps
+
+Both tolerances must be finite and non-negative. Their default value is
+``0.0``, which preserves strict comparison behaviour. Tolerances should
+be selected only to accommodate insignificant numerical variation and
+should not be used to conceal meaningful hydraulic constraint
+violations.
+
+The selected tolerance values are recorded in the verification audit.
+For batch assessments, they are also recorded in every summary row and
+included in ``configuration_hash``. Experiments using different
+tolerances therefore receive different configuration identities.
 
 Returned information
 --------------------
@@ -212,6 +240,8 @@ For example:
        minimum_pressure_m=15.0,
        maximum_velocity_mps=2.5,
        required_compliance_pct=100.0,
+       pressure_tolerance_m=1.0e-6,
+       velocity_tolerance_mps=1.0e-8,
        continue_on_error=True,
        retain_hydraulic_results=False,
    )
@@ -225,7 +255,8 @@ Each batch row contains an ``experiment_id``, ``network_hash`` and
 ``configuration_hash``. The ``network_hash`` is a deterministic
 fingerprint of the serialized input water-network model. The
 ``configuration_hash`` includes that network identity together with
-the design, scenario, simulator and constraint settings. Consequently,
+the design, scenario, simulator, constraint limits, compliance
+requirement and numerical tolerances. Consequently,
 otherwise identical experiments on different network models receive
 different configuration hashes. The summary also records hydraulic
 feasibility, critical pressure and velocity information, pump

@@ -149,6 +149,8 @@ def run_design_verification(
     minimum_pressure_m: float = 15.0,
     maximum_velocity_mps: float = 2.5,
     required_compliance_pct: float = 100.0,
+    pressure_tolerance_m: float = 0.0,
+    velocity_tolerance_mps: float = 0.0,
 ) -> tuple[
     VerificationResult,
     Any,
@@ -179,6 +181,14 @@ def run_design_verification(
     required_compliance_pct
         Required percentage of assessed node-time and pipe-time
         values satisfying each constraint.
+    pressure_tolerance_m
+        Non-negative numerical tolerance applied below the minimum
+        pressure limit. The default of zero preserves strict
+        comparison behaviour.
+    velocity_tolerance_mps
+        Non-negative numerical tolerance applied above the maximum
+        absolute velocity limit. The default of zero preserves strict
+        comparison behaviour.
 
     Returns
     -------
@@ -342,6 +352,7 @@ def run_design_verification(
         required_compliance_pct=(
             required_compliance_pct
         ),
+        pressure_tolerance_m=pressure_tolerance_m,
     )
 
     velocity_result = evaluate_maximum_velocity(
@@ -350,6 +361,7 @@ def run_design_verification(
         required_compliance_pct=(
             required_compliance_pct
         ),
+        velocity_tolerance_mps=velocity_tolerance_mps,
     )
 
     pump_result = audit_head_pump_curves(
@@ -393,6 +405,12 @@ def run_design_verification(
         ),
         "required_compliance_pct": float(
             required_compliance_pct
+        ),
+        "pressure_tolerance_m": float(
+            pressure_tolerance_m
+        ),
+        "velocity_tolerance_mps": float(
+            velocity_tolerance_mps
         ),
         "expected_junction_count": len(
             scenario_wn.junction_name_list

@@ -90,6 +90,8 @@ def test_batch_returns_every_requested_combination():
         simulators=["WNTR"],
         minimum_pressure_m=0.0,
         maximum_velocity_mps=10.0,
+        pressure_tolerance_m=1.0e-6,
+        velocity_tolerance_mps=1.0e-8,
     )
 
     assert len(summary) == 4
@@ -104,6 +106,16 @@ def test_batch_returns_every_requested_combination():
         summary["design_name"].dropna()
     )
     assert set(summary["overall_feasible"]) == {True}
+    assert summary[
+        "pressure_tolerance_m"
+    ].tolist() == pytest.approx(
+        [1.0e-6] * 4
+    )
+    assert summary[
+        "velocity_tolerance_mps"
+    ].tolist() == pytest.approx(
+        [1.0e-8] * 4
+    )
     assert set(records) == set(summary["experiment_id"])
 
 
@@ -223,6 +235,58 @@ def test_batch_configuration_hash_includes_network_hash():
         != row_two["configuration_hash"]
     )
 
+
+
+
+
+def test_batch_configuration_hash_includes_tolerances():
+    """Different tolerances produce different configuration hashes."""
+    wn = build_small_network()
+    scenario = build_scenarios()[0]
+
+    strict_summary, _ = run_verification_batch(
+        wn=wn,
+        scenarios=[scenario],
+        simulators="WNTR",
+        minimum_pressure_m=0.0,
+        maximum_velocity_mps=10.0,
+        pressure_tolerance_m=0.0,
+        velocity_tolerance_mps=0.0,
+    )
+
+    tolerant_summary, _ = run_verification_batch(
+        wn=wn,
+        scenarios=[scenario],
+        simulators="WNTR",
+        minimum_pressure_m=0.0,
+        maximum_velocity_mps=10.0,
+        pressure_tolerance_m=1.0e-6,
+        velocity_tolerance_mps=1.0e-8,
+    )
+
+    strict_row = strict_summary.iloc[0]
+    tolerant_row = tolerant_summary.iloc[0]
+
+    assert (
+        strict_row["network_hash"]
+        == tolerant_row["network_hash"]
+    )
+    assert (
+        strict_row["configuration_hash"]
+        != tolerant_row["configuration_hash"]
+    )
+    assert strict_row[
+        "pressure_tolerance_m"
+    ] == pytest.approx(0.0)
+    assert strict_row[
+        "velocity_tolerance_mps"
+    ] == pytest.approx(0.0)
+    assert tolerant_row[
+        "pressure_tolerance_m"
+    ] == pytest.approx(1.0e-6)
+    assert tolerant_row[
+        "velocity_tolerance_mps"
+    ] == pytest.approx(1.0e-8)
 
 
 

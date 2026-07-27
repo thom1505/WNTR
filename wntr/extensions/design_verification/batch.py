@@ -158,6 +158,8 @@ def _configuration_hash(
     minimum_pressure_m: float,
     maximum_velocity_mps: float,
     required_compliance_pct: float,
+    pressure_tolerance_m: float,
+    velocity_tolerance_mps: float,
 ) -> tuple[str, str, str]:
     """Return a stable hash and serialized configuration records."""
     design_json = _canonical_json(_design_payload(design))
@@ -172,6 +174,12 @@ def _configuration_hash(
         "maximum_velocity_mps": float(maximum_velocity_mps),
         "required_compliance_pct": float(
             required_compliance_pct
+        ),
+        "pressure_tolerance_m": float(
+            pressure_tolerance_m
+        ),
+        "velocity_tolerance_mps": float(
+            velocity_tolerance_mps
         ),
     }
 
@@ -243,6 +251,8 @@ def _base_row(
     minimum_pressure_m: float,
     maximum_velocity_mps: float,
     required_compliance_pct: float,
+    pressure_tolerance_m: float,
+    velocity_tolerance_mps: float,
 ) -> dict[str, object]:
     """Create fields shared by successful and failed experiments."""
     return {
@@ -275,6 +285,12 @@ def _base_row(
         "required_compliance_pct": float(
             required_compliance_pct
         ),
+        "pressure_tolerance_m": float(
+            pressure_tolerance_m
+        ),
+        "velocity_tolerance_mps": float(
+            velocity_tolerance_mps
+        ),
         "design_configuration_json": design_json,
         "scenario_configuration_json": scenario_json,
         "python_version": platform.python_version(),
@@ -296,6 +312,8 @@ def run_verification_batch(
     minimum_pressure_m: float = 15.0,
     maximum_velocity_mps: float = 2.5,
     required_compliance_pct: float = 100.0,
+    pressure_tolerance_m: float = 0.0,
+    velocity_tolerance_mps: float = 0.0,
     continue_on_error: bool = True,
     retain_hydraulic_results: bool = False,
 ) -> tuple[pd.DataFrame, dict[str, dict[str, Any]]]:
@@ -319,6 +337,14 @@ def run_verification_batch(
         Maximum acceptable absolute pipe velocity.
     required_compliance_pct
         Required pressure and velocity compliance percentage.
+    pressure_tolerance_m
+        Non-negative numerical tolerance applied below the minimum
+        pressure limit. The default of zero preserves strict
+        comparison behaviour.
+    velocity_tolerance_mps
+        Non-negative numerical tolerance applied above the maximum
+        absolute velocity limit. The default of zero preserves strict
+        comparison behaviour.
     continue_on_error
         Record experiment failures during configuration preparation,
         hydraulic simulation or result processing and continue when
@@ -392,6 +418,10 @@ def run_verification_batch(
                 required_compliance_pct=(
                     required_compliance_pct
                 ),
+                pressure_tolerance_m=pressure_tolerance_m,
+                velocity_tolerance_mps=(
+                    velocity_tolerance_mps
+                ),
             )
 
             experiment_id = (
@@ -412,6 +442,10 @@ def run_verification_batch(
                 required_compliance_pct=(
                     required_compliance_pct
                 ),
+                pressure_tolerance_m=pressure_tolerance_m,
+                velocity_tolerance_mps=(
+                    velocity_tolerance_mps
+                ),
             )
 
             elapsed_s = time.perf_counter() - started
@@ -431,6 +465,10 @@ def run_verification_batch(
                 maximum_velocity_mps=maximum_velocity_mps,
                 required_compliance_pct=(
                     required_compliance_pct
+                ),
+                pressure_tolerance_m=pressure_tolerance_m,
+                velocity_tolerance_mps=(
+                    velocity_tolerance_mps
                 ),
             )
 
@@ -527,6 +565,10 @@ def run_verification_batch(
                 maximum_velocity_mps=maximum_velocity_mps,
                 required_compliance_pct=(
                     required_compliance_pct
+                ),
+                pressure_tolerance_m=pressure_tolerance_m,
+                velocity_tolerance_mps=(
+                    velocity_tolerance_mps
                 ),
             )
 

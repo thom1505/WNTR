@@ -161,6 +161,138 @@ def test_maximum_velocity_uses_absolute_value():
     assert result.critical_time == 0
 
 
+
+def test_pressure_within_tolerance_is_compliant():
+    """Accept a pressure shortfall within the stated tolerance."""
+    pressure = pd.DataFrame(
+        data=[[14.9999995]],
+        columns=["J1"],
+    )
+
+    result = evaluate_minimum_pressure(
+        pressure=pressure,
+        minimum_pressure_m=15.0,
+        pressure_tolerance_m=1.0e-6,
+    )
+
+    assert result.critical_value == pytest.approx(
+        14.9999995
+    )
+    assert result.compliance_pct == pytest.approx(100.0)
+    assert result.feasible is True
+
+
+def test_pressure_beyond_tolerance_is_not_compliant():
+    """Reject a pressure shortfall larger than the tolerance."""
+    pressure = pd.DataFrame(
+        data=[[14.999]],
+        columns=["J1"],
+    )
+
+    result = evaluate_minimum_pressure(
+        pressure=pressure,
+        minimum_pressure_m=15.0,
+        pressure_tolerance_m=1.0e-6,
+    )
+
+    assert result.compliance_pct == pytest.approx(0.0)
+    assert result.feasible is False
+
+
+def test_velocity_within_tolerance_is_compliant():
+    """Accept a velocity exceedance within the stated tolerance."""
+    velocity = pd.DataFrame(
+        data=[[2.500000005]],
+        columns=["P1"],
+    )
+
+    result = evaluate_maximum_velocity(
+        velocity=velocity,
+        maximum_velocity_mps=2.5,
+        velocity_tolerance_mps=1.0e-8,
+    )
+
+    assert result.critical_value == pytest.approx(
+        2.500000005
+    )
+    assert result.compliance_pct == pytest.approx(100.0)
+    assert result.feasible is True
+
+
+def test_velocity_beyond_tolerance_is_not_compliant():
+    """Reject a velocity exceedance larger than the tolerance."""
+    velocity = pd.DataFrame(
+        data=[[2.5001]],
+        columns=["P1"],
+    )
+
+    result = evaluate_maximum_velocity(
+        velocity=velocity,
+        maximum_velocity_mps=2.5,
+        velocity_tolerance_mps=1.0e-8,
+    )
+
+    assert result.compliance_pct == pytest.approx(0.0)
+    assert result.feasible is False
+
+
+@pytest.mark.parametrize(
+    "tolerance",
+    [
+        -1.0,
+        float("nan"),
+        float("inf"),
+    ],
+)
+def test_invalid_pressure_tolerance_is_rejected(
+    tolerance,
+):
+    """Reject negative or non-finite pressure tolerances."""
+    pressure = pd.DataFrame(
+        data=[[15.0]],
+        columns=["J1"],
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="pressure_tolerance_m",
+    ):
+        evaluate_minimum_pressure(
+            pressure=pressure,
+            minimum_pressure_m=15.0,
+            pressure_tolerance_m=tolerance,
+        )
+
+
+@pytest.mark.parametrize(
+    "tolerance",
+    [
+        -1.0,
+        float("nan"),
+        float("inf"),
+    ],
+)
+def test_invalid_velocity_tolerance_is_rejected(
+    tolerance,
+):
+    """Reject negative or non-finite velocity tolerances."""
+    velocity = pd.DataFrame(
+        data=[[2.5]],
+        columns=["P1"],
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="velocity_tolerance_mps",
+    ):
+        evaluate_maximum_velocity(
+            velocity=velocity,
+            maximum_velocity_mps=2.5,
+            velocity_tolerance_mps=tolerance,
+        )
+
+
+
 def test_partial_pressure_compliance():
     """Accept a result that meets a reduced compliance requirement."""
     pressure = pd.DataFrame(
@@ -802,6 +934,8 @@ def test_run_design_verification_returns_feasible_result():
         simulator="WNTR",
         minimum_pressure_m=15.0,
         maximum_velocity_mps=2.5,
+        pressure_tolerance_m=1.0e-6,
+        velocity_tolerance_mps=1.0e-8,
     )
 
     assert isinstance(
@@ -825,6 +959,12 @@ def test_run_design_verification_returns_feasible_result():
     assert audit["assessed_junction_count"] == 1
     assert audit["expected_pipe_count"] == 1
     assert audit["assessed_pipe_count"] == 1
+    assert audit["pressure_tolerance_m"] == pytest.approx(
+        1.0e-6
+    )
+    assert audit["velocity_tolerance_mps"] == pytest.approx(
+        1.0e-8
+    )
 
     assert "pressure" in results.node
     assert "velocity" in results.link
