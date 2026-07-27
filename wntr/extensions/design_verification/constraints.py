@@ -7,6 +7,7 @@ import math
 import numpy as np
 import pandas as pd
 
+from .exceptions import InvalidConstraintError
 from .models import ConstraintResult
 
 
@@ -41,14 +42,14 @@ def _validate_result_table(
         )
 
     if table.empty:
-        raise ValueError(
+        raise InvalidConstraintError(
             f"{table_name} cannot be empty."
         )
 
     values = table.to_numpy(dtype=float)
 
     if not np.isfinite(values).all():
-        raise ValueError(
+        raise InvalidConstraintError(
             f"{table_name} contains NaN or infinite values."
         )
 
@@ -62,12 +63,12 @@ def _validate_compliance_percentage(
     required = float(required_compliance_pct)
 
     if not math.isfinite(required):
-        raise ValueError(
+        raise InvalidConstraintError(
             "required_compliance_pct must be finite."
         )
 
     if not 0.0 <= required <= 100.0:
-        raise ValueError(
+        raise InvalidConstraintError(
             "required_compliance_pct must be between 0 and 100."
         )
 
@@ -83,7 +84,7 @@ def _validate_tolerance(
     try:
         tolerance = float(value)
     except (TypeError, ValueError) as error:
-        raise ValueError(
+        raise InvalidConstraintError(
             f"{name} must be finite and non-negative."
         ) from error
 
@@ -91,7 +92,7 @@ def _validate_tolerance(
         not math.isfinite(tolerance)
         or tolerance < 0.0
     ):
-        raise ValueError(
+        raise InvalidConstraintError(
             f"{name} must be finite and non-negative."
         )
 
@@ -134,7 +135,7 @@ def evaluate_minimum_pressure(
     minimum_pressure = float(minimum_pressure_m)
 
     if not math.isfinite(minimum_pressure):
-        raise ValueError(
+        raise InvalidConstraintError(
             "minimum_pressure_m must be finite."
         )
 
@@ -212,7 +213,7 @@ def evaluate_maximum_velocity(
         not math.isfinite(maximum_velocity)
         or maximum_velocity <= 0.0
     ):
-        raise ValueError(
+        raise InvalidConstraintError(
             "maximum_velocity_mps must be finite and "
             "greater than zero."
         )

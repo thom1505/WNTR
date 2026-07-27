@@ -11,6 +11,7 @@ import wntr.extensions.design_verification.batch as batch_module
 from wntr.extensions.design_verification import (
     HydraulicScenario,
     PipeDesign,
+    UnsupportedSimulatorError,
     run_verification_batch,
 )
 
@@ -166,7 +167,7 @@ def test_batch_records_failure_and_continues():
         summary["status"] == "failed"
     ].iloc[0]
 
-    assert failed_row["error_type"] == "ValueError"
+    assert failed_row["error_type"] == "UnsupportedSimulatorError"
     assert "simulator" in failed_row["error_message"]
 
     failed_record = records[
@@ -174,7 +175,7 @@ def test_batch_records_failure_and_continues():
     ]
 
     assert failed_record["verification"] is None
-    assert failed_record["error"]["type"] == "ValueError"
+    assert failed_record["error"]["type"] == "UnsupportedSimulatorError"
 
 
 
@@ -498,7 +499,7 @@ def test_batch_can_raise_immediately_on_failure():
     wn = build_small_network()
 
     with pytest.raises(
-        ValueError,
+        UnsupportedSimulatorError,
         match="simulator",
     ):
         run_verification_batch(

@@ -15,6 +15,11 @@ import pandas as pd
 import wntr
 from wntr.network import WaterNetworkModel
 
+from .exceptions import (
+    InvalidDesignError,
+    InvalidScenarioError,
+    UnsupportedSimulatorError,
+)
 from .models import HydraulicScenario, PipeDesign
 from .runner import run_design_verification
 
@@ -34,7 +39,9 @@ def _normalise_designs(
     values = list(designs)
 
     if not values:
-        raise ValueError("designs must contain at least one item.")
+        raise InvalidDesignError(
+            "designs must contain at least one item."
+        )
 
     for design in values:
         if design is not None and not isinstance(design, PipeDesign):
@@ -57,7 +64,9 @@ def _normalise_scenarios(
     values = list(scenarios)
 
     if not values:
-        raise ValueError("scenarios must contain at least one item.")
+        raise InvalidScenarioError(
+            "scenarios must contain at least one item."
+        )
 
     for scenario in values:
         if not isinstance(scenario, HydraulicScenario):
@@ -78,7 +87,9 @@ def _normalise_simulators(
         values = list(simulators)
 
     if not values:
-        raise ValueError("simulators must contain at least one item.")
+        raise UnsupportedSimulatorError(
+            "simulators must contain at least one item."
+        )
 
     for simulator in values:
         if not isinstance(simulator, str):

@@ -14,6 +14,11 @@ from .constraints import (
     evaluate_maximum_velocity,
     evaluate_minimum_pressure,
 )
+from .exceptions import (
+    IncompleteHydraulicResultsError,
+    InvalidConstraintError,
+    UnsupportedSimulatorError,
+)
 from .design import apply_pipe_design
 from .models import (
     HydraulicScenario,
@@ -27,7 +32,7 @@ from .scenarios import apply_hydraulic_scenario
 def _canonical_simulator_name(value: object) -> str:
     """Return a standardized hydraulic-simulator name."""
     if not isinstance(value, str):
-        raise ValueError(
+        raise UnsupportedSimulatorError(
             "simulator must be a string."
         )
 
@@ -43,7 +48,7 @@ def _canonical_simulator_name(value: object) -> str:
     }
 
     if normalized not in aliases:
-        raise ValueError(
+        raise UnsupportedSimulatorError(
             "simulator must be WNTR or EPANET."
         )
 
@@ -64,7 +69,7 @@ def _select_result_columns(
     required_names = list(dict.fromkeys(component_names))
 
     if not required_names:
-        raise ValueError(
+        raise InvalidConstraintError(
             f"No applicable components exist for {result_name} "
             "verification."
         )
@@ -86,7 +91,7 @@ def _select_result_columns(
             repr(name)
             for name in duplicated_required
         )
-        raise RuntimeError(
+        raise IncompleteHydraulicResultsError(
             f"The {result_name} results contain duplicate "
             f"columns for required components: {names}."
         )
@@ -108,7 +113,7 @@ def _select_result_columns(
         if remaining > 0:
             preview += f", and {remaining} more"
 
-        raise RuntimeError(
+        raise IncompleteHydraulicResultsError(
             f"The {result_name} results are missing "
             f"{len(missing_names)} required component(s): "
             f"{preview}."
@@ -292,7 +297,7 @@ def run_design_verification(
             "pressure"
         ]
     except (AttributeError, KeyError) as error:
-        raise RuntimeError(
+        raise IncompleteHydraulicResultsError(
             "The simulation did not return node-pressure results."
         ) from error
 
@@ -301,7 +306,7 @@ def run_design_verification(
             "velocity"
         ]
     except (AttributeError, KeyError) as error:
-        raise RuntimeError(
+        raise IncompleteHydraulicResultsError(
             "The simulation did not return link-velocity results."
         ) from error
     try:
@@ -309,7 +314,7 @@ def run_design_verification(
             "flowrate"
         ]
     except (AttributeError, KeyError) as error:
-        raise RuntimeError(
+        raise IncompleteHydraulicResultsError(
             "The simulation did not return link-flowrate results."
         ) from error
 

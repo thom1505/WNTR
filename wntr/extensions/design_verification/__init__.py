@@ -10,6 +10,14 @@ from .constraints import (
     evaluate_maximum_velocity,
     evaluate_minimum_pressure,
 )
+from .exceptions import (
+    DesignVerificationError,
+    IncompleteHydraulicResultsError,
+    InvalidConstraintError,
+    InvalidDesignError,
+    InvalidScenarioError,
+    UnsupportedSimulatorError,
+)
 from .design import apply_pipe_design
 from .models import (
     ConstraintResult,
@@ -28,6 +36,12 @@ from .scenarios import apply_hydraulic_scenario
 __all__ = [
     "AllPumpCurveResult",
     "ConstraintResult",
+    "DesignVerificationError",
+    "IncompleteHydraulicResultsError",
+    "InvalidConstraintError",
+    "InvalidDesignError",
+    "InvalidScenarioError",
+    "UnsupportedSimulatorError",
     "HydraulicScenario",
     "PipeDesign",
     "PumpCurveResult",

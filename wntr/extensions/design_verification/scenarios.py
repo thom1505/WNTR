@@ -7,6 +7,7 @@ import math
 
 from wntr.network import WaterNetworkModel
 
+from .exceptions import InvalidScenarioError
 from .models import HydraulicScenario
 
 
@@ -16,19 +17,19 @@ def _finite_float(
 ) -> float:
     """Convert a value to a finite floating-point number."""
     if isinstance(value, bool):
-        raise ValueError(
+        raise InvalidScenarioError(
             f"{parameter_name} must be numeric, not Boolean."
         )
 
     try:
         converted = float(value)
     except (TypeError, ValueError) as error:
-        raise ValueError(
+        raise InvalidScenarioError(
             f"{parameter_name} must be numeric."
         ) from error
 
     if not math.isfinite(converted):
-        raise ValueError(
+        raise InvalidScenarioError(
             f"{parameter_name} must be finite."
         )
 
@@ -48,7 +49,7 @@ def _seconds_value(
     )
 
     if not converted.is_integer():
-        raise ValueError(
+        raise InvalidScenarioError(
             f"{parameter_name} must be a whole number of seconds."
         )
 
@@ -56,12 +57,12 @@ def _seconds_value(
 
     if allow_zero:
         if converted_int < 0:
-            raise ValueError(
+            raise InvalidScenarioError(
                 f"{parameter_name} must be greater than or equal "
                 "to zero."
             )
     elif converted_int <= 0:
-        raise ValueError(
+        raise InvalidScenarioError(
             f"{parameter_name} must be greater than zero."
         )
 
@@ -71,7 +72,7 @@ def _seconds_value(
 def _canonical_demand_model(value: object) -> str:
     """Return a standard DD or PDD demand-model name."""
     if not isinstance(value, str):
-        raise ValueError(
+        raise InvalidScenarioError(
             "demand_model must be a string."
         )
 
@@ -85,7 +86,7 @@ def _canonical_demand_model(value: object) -> str:
     }
 
     if normalized not in aliases:
-        raise ValueError(
+        raise InvalidScenarioError(
             "demand_model must be one of DD, DDA, PDD, or PDA."
         )
 
@@ -137,7 +138,7 @@ def apply_hydraulic_scenario(
         not isinstance(scenario.name, str)
         or not scenario.name.strip()
     ):
-        raise ValueError(
+        raise InvalidScenarioError(
             "scenario name cannot be empty."
         )
 
@@ -147,7 +148,7 @@ def apply_hydraulic_scenario(
     )
 
     if demand_multiplier <= 0.0:
-        raise ValueError(
+        raise InvalidScenarioError(
             "demand_multiplier must be greater than zero."
         )
 
@@ -261,24 +262,24 @@ def apply_hydraulic_scenario(
         )
 
         if minimum_pressure_m < 0.0:
-            raise ValueError(
+            raise InvalidScenarioError(
                 "minimum_pressure_m must be greater than or equal "
                 "to zero."
             )
 
         if required_pressure_m < 0.0:
-            raise ValueError(
+            raise InvalidScenarioError(
                 "required_pressure_m must be greater than or equal "
                 "to zero."
             )
 
         if pressure_exponent <= 0.0:
-            raise ValueError(
+            raise InvalidScenarioError(
                 "pressure_exponent must be greater than zero."
             )
 
         if required_pressure_m <= minimum_pressure_m:
-            raise ValueError(
+            raise InvalidScenarioError(
                 "required_pressure_m must be greater than "
                 "minimum_pressure_m."
             )

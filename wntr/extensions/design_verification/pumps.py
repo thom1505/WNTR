@@ -9,6 +9,7 @@ from typing import Hashable
 import pandas as pd
 
 from wntr.network import WaterNetworkModel
+from .exceptions import InvalidConstraintError
 
 
 @dataclass(frozen=True)
@@ -176,10 +177,18 @@ def audit_head_pump_curves(
     if not isinstance(flowrate, pd.DataFrame):
         raise TypeError("flowrate must be a pandas DataFrame")
 
-    tolerance = float(relative_tolerance)
+    try:
+        tolerance = float(relative_tolerance)
+    except (TypeError, ValueError) as error:
+        raise InvalidConstraintError(
+            "relative_tolerance must be a finite "
+            "non-negative value"
+        ) from error
+
     if not math.isfinite(tolerance) or tolerance < 0.0:
-        raise ValueError(
-            "relative_tolerance must be a finite non-negative value"
+        raise InvalidConstraintError(
+            "relative_tolerance must be a finite "
+            "non-negative value"
         )
 
     pump_names = list(

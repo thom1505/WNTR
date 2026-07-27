@@ -139,6 +139,66 @@ For batch assessments, they are also recorded in every summary row and
 included in ``configuration_hash``. Experiments using different
 tolerances therefore receive different configuration identities.
 
+Exceptions
+----------
+
+The extension provides public exception classes so applications can
+distinguish design, scenario, constraint, simulator and hydraulic-result
+failures.
+
+``DesignVerificationError``
+   Base exception for design-verification failures.
+
+``InvalidDesignError``
+   Raised when a proposed pipe design or design collection is invalid.
+
+``InvalidScenarioError``
+   Raised when a hydraulic scenario or scenario collection is invalid.
+
+``InvalidConstraintError``
+   Raised when pressure, velocity, compliance or numerical-tolerance
+   settings are invalid.
+
+``UnsupportedSimulatorError``
+   Raised when a simulator request is empty, incorrectly specified or
+   not supported.
+
+``IncompleteHydraulicResultsError``
+   Raised when the simulator does not return the pressure, velocity or
+   flowrate information required for a hydraulic decision.
+
+The validation exceptions remain subclasses of ``ValueError`` and
+``IncompleteHydraulicResultsError`` remains a subclass of
+``RuntimeError``. Existing applications that catch these standard
+exception types therefore remain compatible. Incorrect Python object
+types continue to raise ``TypeError``.
+
+Applications can catch either the common base exception or a specific
+failure type:
+
+.. code-block:: python
+
+   from wntr.extensions.design_verification import (
+       DesignVerificationError,
+       IncompleteHydraulicResultsError,
+       run_design_verification,
+   )
+
+   try:
+       verification, results, audit = run_design_verification(
+           wn=wn,
+           scenario=scenario,
+       )
+   except IncompleteHydraulicResultsError as error:
+       print(f"Hydraulic results were incomplete: {error}")
+   except DesignVerificationError as error:
+       print(f"Verification could not be completed: {error}")
+
+When batch processing continues after a failure, ``error_type`` records
+the concrete exception-class name, such as
+``UnsupportedSimulatorError``. The detailed batch record contains the
+same type and error message.
+
 Returned information
 --------------------
 
