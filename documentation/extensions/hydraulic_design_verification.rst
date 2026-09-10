@@ -62,58 +62,89 @@ A hydraulic scenario uses WNTR's native simulation options:
    >>> isinstance(scenario.options, Options)
    True
 
-The following example assumes that ``wn`` is an existing
-``WaterNetworkModel``:
+The following doctest builds a small water network, applies a candidate
+pipe-diameter design and hydraulic simulation options, and verifies the
+result against pressure and velocity constraints.
 
-.. code-block:: python
+.. doctest::
 
-   from wntr.network import Options
-   from wntr.extensions.design_verification import (
-       HydraulicScenario,
-       PipeDesign,
-       run_design_verification,
-   )
+   >>> import wntr
+   >>> from wntr.extensions.design_verification import (
+   ...     HydraulicScenario,
+   ...     PipeDesign,
+   ...     run_design_verification,
+   ... )
+   >>> wn = wntr.network.WaterNetworkModel()
+   >>> wn.add_reservoir(
+   ...     "R1",
+   ...     base_head=50.0,
+   ...     coordinates=(0.0, 0.0),
+   ... )
+   >>> wn.add_junction(
+   ...     "J1",
+   ...     base_demand=0.01,
+   ...     demand_pattern=None,
+   ...     elevation=10.0,
+   ...     coordinates=(100.0, 0.0),
+   ... )
+   >>> wn.add_pipe(
+   ...     "P1",
+   ...     start_node_name="R1",
+   ...     end_node_name="J1",
+   ...     length=100.0,
+   ...     diameter=0.150,
+   ...     roughness=100.0,
+   ...     minor_loss=0.0,
+   ... )
+   >>> options = wntr.network.Options()
+   >>> options.time.duration = 0
+   >>> options.time.hydraulic_timestep = 3600
+   >>> options.time.report_timestep = 3600
+   >>> options.hydraulic.demand_model = "DD"
+   >>> options.hydraulic.demand_multiplier = 1.0
+   >>> scenario = HydraulicScenario(
+   ...     name="Baseline",
+   ...     options=options,
+   ... )
+   >>> design = PipeDesign(
+   ...     name="Candidate pipe design",
+   ...     diameters_m={"P1": 0.200},
+   ... )
+   >>> verification, hydraulic_results, audit = run_design_verification(
+   ...     wn=wn,
+   ...     scenario=scenario,
+   ...     design=design,
+   ...     simulator="WNTRSimulator",
+   ...     minimum_pressure_m=15.0,
+   ...     maximum_velocity_mps=2.5,
+   ... )
+   >>> print(f"Overall verification feasible: {verification.feasible}")
+   Overall verification feasible: True
+   >>> print(
+   ...     "Minimum-pressure constraint satisfied: "
+   ...     f"{verification.pressure_result.feasible}"
+   ... )
+   Minimum-pressure constraint satisfied: True
+   >>> print(
+   ...     "Maximum-velocity constraint satisfied: "
+   ...     f"{verification.velocity_result.feasible}"
+   ... )
+   Maximum-velocity constraint satisfied: True
+   >>> print(
+   ...     "Critical pressure junction: "
+   ...     f"{verification.pressure_result.critical_component}"
+   ... )
+   Critical pressure junction: J1
+   >>> print(
+   ...     "Critical velocity pipe: "
+   ...     f"{verification.velocity_result.critical_component}"
+   ... )
+   Critical velocity pipe: P1
 
-   options = Options()
-   options.hydraulic.demand_model = "PDD"
-   options.hydraulic.demand_multiplier = 1.25
-   options.hydraulic.minimum_pressure = 0.0
-   options.hydraulic.required_pressure = 15.0
-   options.hydraulic.pressure_exponent = 0.5
-   options.time.duration = 24 * 3600
-   options.time.hydraulic_timestep = 3600
-   options.time.report_timestep = 3600
-
-   scenario = HydraulicScenario(
-       name="Peak-demand scenario",
-       options=options,
-   )
-
-   design = PipeDesign(
-       name="Candidate pipe design",
-       diameters_m={
-           "P1": 0.300,
-           "P2": 0.250,
-       },
-   )
-
-   verification, hydraulic_results, audit = run_design_verification(
-       wn=wn,
-       scenario=scenario,
-       design=design,
-       simulator="WNTRSimulator",
-       minimum_pressure_m=15.0,
-       maximum_velocity_mps=2.5,
-       required_compliance_pct=100.0,
-       pressure_tolerance_m=1.0e-6,
-       velocity_tolerance_mps=1.0e-8,
-   )
-
-   print(verification.feasible)
-   print(verification.pressure_result)
-   print(verification.velocity_result)
-   print(verification.pump_result)
-   print(audit)
+The ``True`` results show that the candidate design satisfies both the
+minimum-pressure and maximum-velocity requirements for this scenario.
+The critical component outputs identify where the governing pressure
+and velocity values occurred.
 
 Numerical tolerances
 --------------------
