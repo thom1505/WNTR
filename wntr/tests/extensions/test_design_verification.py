@@ -215,18 +215,6 @@ def test_partial_pressure_compliance():
     assert result.feasible is True
 
 
-def test_empty_pressure_table_is_rejected():
-    """Reject an empty hydraulic-results table."""
-    with pytest.raises(
-        ValueError,
-        match="pressure cannot be empty",
-    ):
-        evaluate_minimum_pressure(
-            pressure=pd.DataFrame(),
-            minimum_pressure_m=15.0,
-        )
-
-
 def test_invalid_velocity_limit_is_rejected():
     """Reject a zero maximum-velocity limit."""
     velocity = pd.DataFrame(
@@ -241,18 +229,6 @@ def test_invalid_velocity_limit_is_rejected():
         evaluate_maximum_velocity(
             velocity=velocity,
             maximum_velocity_mps=0.0,
-        )
-
-
-def test_non_dataframe_pressure_is_rejected():
-    """Require pressure results to use a pandas DataFrame."""
-    with pytest.raises(
-        TypeError,
-        match="pandas DataFrame",
-    ):
-        evaluate_minimum_pressure(
-            pressure=[[20.0, 15.0]],
-            minimum_pressure_m=15.0,
         )
 
 

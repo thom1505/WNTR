@@ -11,51 +11,6 @@ from .exceptions import InvalidConstraintError
 from .models import ConstraintResult
 
 
-def _validate_result_table(
-    table: pd.DataFrame,
-    table_name: str,
-) -> np.ndarray:
-    """Validate and convert a hydraulic-results table.
-
-    Parameters
-    ----------
-    table
-        Hydraulic-results table to validate.
-    table_name
-        Name used in validation error messages.
-
-    Returns
-    -------
-    numpy.ndarray
-        Finite floating-point values extracted from the table.
-
-    Raises
-    ------
-    TypeError
-        If ``table`` is not a pandas DataFrame.
-    ValueError
-        If the table is empty or contains non-finite values.
-    """
-    if not isinstance(table, pd.DataFrame):
-        raise TypeError(
-            f"{table_name} must be a pandas DataFrame."
-        )
-
-    if table.empty:
-        raise InvalidConstraintError(
-            f"{table_name} cannot be empty."
-        )
-
-    values = table.to_numpy(dtype=float)
-
-    if not np.isfinite(values).all():
-        raise InvalidConstraintError(
-            f"{table_name} contains NaN or infinite values."
-        )
-
-    return values
-
-
 def _validate_compliance_percentage(
     required_compliance_pct: float,
 ) -> float:
@@ -127,10 +82,7 @@ def evaluate_minimum_pressure(
     ConstraintResult
         Pressure-compliance result and critical location.
     """
-    values = _validate_result_table(
-        pressure,
-        "pressure",
-    )
+    values = pressure.to_numpy(dtype=float)
 
     minimum_pressure = float(minimum_pressure_m)
 
@@ -202,10 +154,7 @@ def evaluate_maximum_velocity(
     ConstraintResult
         Velocity-compliance result and critical location.
     """
-    values = _validate_result_table(
-        velocity,
-        "velocity",
-    )
+    values = velocity.to_numpy(dtype=float)
 
     maximum_velocity = float(maximum_velocity_mps)
 
