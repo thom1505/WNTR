@@ -6,7 +6,6 @@ import hashlib
 import json
 import platform
 import time
-from dataclasses import asdict
 from datetime import datetime, timezone
 from itertools import product
 from typing import Any, Sequence
@@ -15,129 +14,34 @@ import pandas as pd
 import wntr
 from wntr.network import WaterNetworkModel
 
-from .exceptions import (
-    InvalidDesignError,
-    InvalidScenarioError,
-    UnsupportedSimulatorError,
-)
 from .models import HydraulicScenario, PipeDesign
 from .runner import run_design_verification
-
-
-def _normalise_designs(
-    designs: Sequence[PipeDesign | None] | None,
-) -> list[PipeDesign | None]:
-    """Validate and return the designs used in a batch."""
-    if designs is None:
-        return [None]
-
-    if isinstance(designs, (str, bytes)):
-        raise TypeError(
-            "designs must be a sequence of PipeDesign objects or None."
-        )
-
-    values = list(designs)
-
-    if not values:
-        raise InvalidDesignError(
-            "designs must contain at least one item."
-        )
-
-    for design in values:
-        if design is not None and not isinstance(design, PipeDesign):
-            raise TypeError(
-                "Each design must be a PipeDesign object or None."
-            )
-
-    return values
-
-
-def _normalise_scenarios(
-    scenarios: Sequence[HydraulicScenario],
-) -> list[HydraulicScenario]:
-    """Validate and return the scenarios used in a batch."""
-    if isinstance(scenarios, (str, bytes)):
-        raise TypeError(
-            "scenarios must be a sequence of HydraulicScenario objects."
-        )
-
-    values = list(scenarios)
-
-    if not values:
-        raise InvalidScenarioError(
-            "scenarios must contain at least one item."
-        )
-
-    for scenario in values:
-        if not isinstance(scenario, HydraulicScenario):
-            raise TypeError(
-                "Each scenario must be a HydraulicScenario object."
-            )
-
-    return values
-
-
-def _normalise_simulators(
-    simulators: Sequence[str] | str,
-) -> list[str]:
-    """Return simulator requests as a non-empty list."""
-    if isinstance(simulators, str):
-        values = [simulators]
-    else:
-        values = list(simulators)
-
-    if not values:
-        raise UnsupportedSimulatorError(
-            "simulators must contain at least one item."
-        )
-
-    for simulator in values:
-        if not isinstance(simulator, str):
-            raise TypeError(
-                "Each simulator must be provided as a string."
-            )
-
-    return values
-
-
-def _safe_name(value: object) -> str:
-    """Return a readable name without assuming the value is a string."""
-    if isinstance(value, str):
-        return value.strip()
-
-    return str(value)
 
 
 def _design_payload(
     design: PipeDesign | None,
 ) -> dict[str, object] | None:
-    """Return a JSON-serializable pipe-design description."""
+    """Return a JSON-serializable pipe-diameter design description."""
     if design is None:
         return None
 
-    sorted_diameters = sorted(
-        (
-            (str(pipe_name), diameter_m)
-            for pipe_name, diameter_m
-            in design.diameters_m.items()
-        ),
-        key=lambda item: item[0],
-    )
-
     return {
-        "name": design.name,
-        "diameters_m": {
-            pipe_name: diameter_m
-            for pipe_name, diameter_m in sorted_diameters
-        },
+        "name": design.name.strip(),
+        "diameters_m": dict(
+            sorted(design.diameters_m.items())
+        ),
     }
 
 
 def _scenario_payload(
     scenario: HydraulicScenario,
 ) -> dict[str, object]:
-    """Return a JSON-serializable scenario description."""
-    return dict(asdict(scenario))
+    """Return the WNTR time and hydraulic options for a scenario."""
+    return {
+        "name": scenario.name.strip(),
+        "time": dict(scenario.options.time),
+        "hydraulic": dict(scenario.options.hydraulic),
+    }
 
 
 def _canonical_json(value: object) -> str:
@@ -151,10 +55,8 @@ def _canonical_json(value: object) -> str:
     )
 
 
-def _network_hash(
-    wn: WaterNetworkModel,
-) -> str:
-    """Fingerprint the serialized water-network model deterministically."""
+def _network_hash(wn: WaterNetworkModel) -> str:
+    """Fingerprint the serialized water-network model."""
     return hashlib.sha256(
         _canonical_json(wn.to_dict()).encode("utf-8")
     ).hexdigest()
@@ -180,18 +82,12 @@ def _configuration_hash(
         "network_hash": network_hash,
         "design": json.loads(design_json),
         "scenario": json.loads(scenario_json),
-        "simulator": simulator.strip().upper(),
+        "simulator": simulator.strip(),
         "minimum_pressure_m": float(minimum_pressure_m),
         "maximum_velocity_mps": float(maximum_velocity_mps),
-        "required_compliance_pct": float(
-            required_compliance_pct
-        ),
-        "pressure_tolerance_m": float(
-            pressure_tolerance_m
-        ),
-        "velocity_tolerance_mps": float(
-            velocity_tolerance_mps
-        ),
+        "required_compliance_pct": float(required_compliance_pct),
+        "pressure_tolerance_m": float(pressure_tolerance_m),
+        "velocity_tolerance_mps": float(velocity_tolerance_mps),
     }
 
     digest = hashlib.sha256(
@@ -223,12 +119,8 @@ def _pump_summary_fields(
             if pump_result.head_pumps_in_network == 0
             else pump_result.all_pumps_passed
         ),
-        "head_pumps_in_network": (
-            pump_result.head_pumps_in_network
-        ),
-        "head_pumps_evaluable": (
-            pump_result.head_pumps_evaluable
-        ),
+        "head_pumps_in_network": pump_result.head_pumps_in_network,
+        "head_pumps_evaluable": pump_result.head_pumps_evaluable,
         "all_head_pumps_evaluable": (
             pump_result.all_head_pumps_evaluable
         ),
@@ -238,9 +130,7 @@ def _pump_summary_fields(
         "total_curve_exceedance_observations": (
             pump_result.total_curve_exceedance_observations
         ),
-        "governing_pump_name": (
-            pump_result.governing_pump_name
-        ),
+        "governing_pump_name": pump_result.governing_pump_name,
         "maximum_pump_flow_ratio": (
             pump_result.maximum_pump_flow_ratio
         ),
@@ -274,42 +164,32 @@ def _base_row(
         "started_at_utc": started_at_utc,
         "elapsed_s": elapsed_s,
         "design_name": (
-            None
-            if design is None
-            else _safe_name(design.name)
+            None if design is None else design.name.strip()
         ),
-        "scenario_name": _safe_name(scenario.name),
+        "scenario_name": scenario.name.strip(),
         "simulator_name": simulator.strip(),
-        "demand_multiplier": scenario.demand_multiplier,
-        "demand_model": scenario.demand_model,
-        "duration_s": scenario.duration_s,
+        "demand_multiplier": (
+            scenario.options.hydraulic.demand_multiplier
+        ),
+        "demand_model": str(
+            scenario.options.hydraulic.demand_model
+        ),
+        "duration_s": scenario.options.time.duration,
         "hydraulic_timestep_s": (
-            scenario.hydraulic_timestep_s
+            scenario.options.time.hydraulic_timestep
         ),
-        "report_timestep_s": scenario.report_timestep_s,
-        "minimum_pressure_limit_m": float(
-            minimum_pressure_m
+        "report_timestep_s": (
+            scenario.options.time.report_timestep
         ),
-        "maximum_velocity_limit_mps": float(
-            maximum_velocity_mps
-        ),
-        "required_compliance_pct": float(
-            required_compliance_pct
-        ),
-        "pressure_tolerance_m": float(
-            pressure_tolerance_m
-        ),
-        "velocity_tolerance_mps": float(
-            velocity_tolerance_mps
-        ),
+        "minimum_pressure_limit_m": float(minimum_pressure_m),
+        "maximum_velocity_limit_mps": float(maximum_velocity_mps),
+        "required_compliance_pct": float(required_compliance_pct),
+        "pressure_tolerance_m": float(pressure_tolerance_m),
+        "velocity_tolerance_mps": float(velocity_tolerance_mps),
         "design_configuration_json": design_json,
         "scenario_configuration_json": scenario_json,
         "python_version": platform.python_version(),
-        "wntr_version": getattr(
-            wntr,
-            "__version__",
-            "unknown",
-        ),
+        "wntr_version": getattr(wntr, "__version__", "unknown"),
         "platform": platform.platform(),
     }
 
@@ -319,7 +199,7 @@ def run_verification_batch(
     scenarios: Sequence[HydraulicScenario],
     *,
     designs: Sequence[PipeDesign | None] | None = None,
-    simulators: Sequence[str] | str = ("WNTR",),
+    simulators: Sequence[str] | str = ("WNTRSimulator",),
     minimum_pressure_m: float = 15.0,
     maximum_velocity_mps: float = 2.5,
     required_compliance_pct: float = 100.0,
@@ -335,13 +215,13 @@ def run_verification_batch(
     wn
         Original WNTR water-distribution network.
     scenarios
-        Hydraulic scenarios to assess.
+        Hydraulic scenarios containing WNTR time and hydraulic options.
     designs
-        Pipe designs to assess. Use ``None`` for the unchanged
+        Pipe-diameter designs to assess. Use ``None`` for the unchanged
         baseline network. When omitted, only the baseline is assessed.
     simulators
-        One or more simulator names accepted by
-        :func:`run_design_verification`.
+        ``WNTRSimulator`` or ``EpanetSimulator``, or a sequence
+        containing those names.
     minimum_pressure_m
         Minimum acceptable junction pressure.
     maximum_velocity_mps
@@ -349,36 +229,45 @@ def run_verification_batch(
     required_compliance_pct
         Required pressure and velocity compliance percentage.
     pressure_tolerance_m
-        Non-negative numerical tolerance applied below the minimum
-        pressure limit. The default of zero preserves strict
-        comparison behaviour.
+        Numerical tolerance below the minimum pressure limit.
     velocity_tolerance_mps
-        Non-negative numerical tolerance applied above the maximum
-        absolute velocity limit. The default of zero preserves strict
-        comparison behaviour.
+        Numerical tolerance above the maximum velocity limit.
     continue_on_error
-        Record experiment failures during configuration preparation,
-        hydraulic simulation or result processing and continue when
-        ``True``. Re-raise the first exception when ``False``.
+        Record an experiment failure and continue when ``True``.
     retain_hydraulic_results
-        Retain raw hydraulic result objects in the returned records.
+        Retain raw hydraulic result objects in returned records.
 
     Returns
     -------
     summary
-        One row per requested experiment, including configuration,
-        performance, feasibility, timing, and error information.
+        One row per requested experiment.
     records
-        Detailed records keyed by experiment ID. Successful records
-        include verification and audit objects. Raw hydraulic results
-        are included only when ``retain_hydraulic_results`` is true.
+        Detailed records keyed by experiment ID.
     """
-    if not isinstance(wn, WaterNetworkModel):
-        raise TypeError("wn must be a WNTR WaterNetworkModel.")
+    assert isinstance(wn, WaterNetworkModel)
 
-    design_values = _normalise_designs(designs)
-    scenario_values = _normalise_scenarios(scenarios)
-    simulator_values = _normalise_simulators(simulators)
+    design_values = [None] if designs is None else list(designs)
+    scenario_values = list(scenarios)
+    simulator_values = (
+        [simulators]
+        if isinstance(simulators, str)
+        else list(simulators)
+    )
+
+    assert design_values and all(
+        design is None or isinstance(design, PipeDesign)
+        for design in design_values
+    ), "designs must contain PipeDesign objects or None"
+
+    assert scenario_values and all(
+        isinstance(scenario, HydraulicScenario)
+        for scenario in scenario_values
+    ), "scenarios must contain HydraulicScenario objects"
+
+    assert simulator_values and all(
+        isinstance(simulator, str)
+        for simulator in simulator_values
+    ), "simulators must be a string or sequence of strings"
 
     rows: list[dict[str, object]] = []
     records: dict[str, dict[str, Any]] = {}
@@ -395,10 +284,7 @@ def run_verification_batch(
         scenario,
         simulator,
     ) in enumerate(combinations, start=1):
-        started_at_utc = datetime.now(
-            timezone.utc
-        ).isoformat()
-
+        started_at_utc = datetime.now(timezone.utc).isoformat()
         started = time.perf_counter()
 
         network_hash = "unavailable"
@@ -426,19 +312,16 @@ def run_verification_batch(
                 simulator=simulator,
                 minimum_pressure_m=minimum_pressure_m,
                 maximum_velocity_mps=maximum_velocity_mps,
-                required_compliance_pct=(
-                    required_compliance_pct
-                ),
+                required_compliance_pct=required_compliance_pct,
                 pressure_tolerance_m=pressure_tolerance_m,
-                velocity_tolerance_mps=(
-                    velocity_tolerance_mps
-                ),
+                velocity_tolerance_mps=velocity_tolerance_mps,
             )
 
             experiment_id = (
                 f"dv-{experiment_number:05d}-"
                 f"{configuration_hash[:12]}"
             )
+
             (
                 verification,
                 hydraulic_results,
@@ -450,13 +333,9 @@ def run_verification_batch(
                 simulator=simulator,
                 minimum_pressure_m=minimum_pressure_m,
                 maximum_velocity_mps=maximum_velocity_mps,
-                required_compliance_pct=(
-                    required_compliance_pct
-                ),
+                required_compliance_pct=required_compliance_pct,
                 pressure_tolerance_m=pressure_tolerance_m,
-                velocity_tolerance_mps=(
-                    velocity_tolerance_mps
-                ),
+                velocity_tolerance_mps=velocity_tolerance_mps,
             )
 
             elapsed_s = time.perf_counter() - started
@@ -474,13 +353,9 @@ def run_verification_batch(
                 elapsed_s=elapsed_s,
                 minimum_pressure_m=minimum_pressure_m,
                 maximum_velocity_mps=maximum_velocity_mps,
-                required_compliance_pct=(
-                    required_compliance_pct
-                ),
+                required_compliance_pct=required_compliance_pct,
                 pressure_tolerance_m=pressure_tolerance_m,
-                velocity_tolerance_mps=(
-                    velocity_tolerance_mps
-                ),
+                velocity_tolerance_mps=velocity_tolerance_mps,
             )
 
             pressure_result = verification.pressure_result
@@ -490,15 +365,9 @@ def run_verification_batch(
                 {
                     "status": "completed",
                     "overall_feasible": verification.feasible,
-                    "pressure_feasible": (
-                        pressure_result.feasible
-                    ),
-                    "velocity_feasible": (
-                        velocity_result.feasible
-                    ),
-                    "minimum_pressure_m": (
-                        pressure_result.critical_value
-                    ),
+                    "pressure_feasible": pressure_result.feasible,
+                    "velocity_feasible": velocity_result.feasible,
+                    "minimum_pressure_m": pressure_result.critical_value,
                     "pressure_margin_m": (
                         pressure_result.critical_value
                         - float(minimum_pressure_m)
@@ -512,9 +381,7 @@ def run_verification_batch(
                     "critical_pressure_time": (
                         pressure_result.critical_time
                     ),
-                    "maximum_velocity_mps": (
-                        velocity_result.critical_value
-                    ),
+                    "maximum_velocity_mps": velocity_result.critical_value,
                     "velocity_margin_mps": (
                         float(maximum_velocity_mps)
                         - velocity_result.critical_value
@@ -537,9 +404,7 @@ def run_verification_batch(
             )
 
             row.update(
-                _pump_summary_fields(
-                    verification.pump_result
-                )
+                _pump_summary_fields(verification.pump_result)
             )
 
             record: dict[str, Any] = {
@@ -549,9 +414,7 @@ def run_verification_batch(
             }
 
             if retain_hydraulic_results:
-                record["hydraulic_results"] = (
-                    hydraulic_results
-                )
+                record["hydraulic_results"] = hydraulic_results
 
             records[experiment_id] = record
 
@@ -574,13 +437,9 @@ def run_verification_batch(
                 elapsed_s=elapsed_s,
                 minimum_pressure_m=minimum_pressure_m,
                 maximum_velocity_mps=maximum_velocity_mps,
-                required_compliance_pct=(
-                    required_compliance_pct
-                ),
+                required_compliance_pct=required_compliance_pct,
                 pressure_tolerance_m=pressure_tolerance_m,
-                velocity_tolerance_mps=(
-                    velocity_tolerance_mps
-                ),
+                velocity_tolerance_mps=velocity_tolerance_mps,
             )
 
             row.update(
@@ -605,9 +464,7 @@ def run_verification_batch(
                 }
             )
 
-            row.update(
-                _pump_summary_fields(None)
-            )
+            row.update(_pump_summary_fields(None))
 
             records[experiment_id] = {
                 "verification": None,
@@ -620,6 +477,4 @@ def run_verification_batch(
 
         rows.append(row)
 
-    summary = pd.DataFrame(rows)
-
-    return summary, records
+    return pd.DataFrame(rows), records

@@ -6,6 +6,8 @@ from collections.abc import Hashable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from wntr.network import Options
+
 if TYPE_CHECKING:
     from .pumps import AllPumpCurveResult
 
@@ -54,44 +56,20 @@ class PipeDesign:
 
 @dataclass(frozen=True)
 class HydraulicScenario:
-    """Describe hydraulic operating conditions for one assessment.
+    """Describe simulation options for one hydraulic assessment.
 
     Parameters
     ----------
     name
         User-facing name for the hydraulic scenario.
-    demand_multiplier
-        Global multiplier applied to all junction demands.
-    demand_model
-        Hydraulic demand formulation, normally ``DD`` or ``PDD``.
-    duration_s
-        Total simulation duration in seconds. A value of zero
-        represents a steady-state simulation.
-    hydraulic_timestep_s
-        Hydraulic calculation timestep in seconds.
-    report_timestep_s
-        Hydraulic-results reporting timestep in seconds.
-    minimum_pressure_m
-        Optional global minimum pressure for pressure-dependent
-        demand analysis, in metres.
-    required_pressure_m
-        Optional global required pressure for pressure-dependent
-        demand analysis, in metres.
-    pressure_exponent
-    Optional global pressure exponent for pressure-dependent demand
-    analysis. When omitted, the network's existing setting is preserved.
+    options
+        WNTR simulation options. The design-verification extension
+        applies the time and hydraulic option groups to an independent
+        copy of the water network model.
     """
 
     name: str
-    demand_multiplier: float = 1.0
-    demand_model: str = "DD"
-    duration_s: int = 0
-    hydraulic_timestep_s: int = 3600
-    report_timestep_s: int = 3600
-    minimum_pressure_m: float | None = None
-    required_pressure_m: float | None = None
-    pressure_exponent: float | None = None
-
+    options: Options
 
 
 @dataclass(frozen=True)
@@ -104,20 +82,20 @@ class VerificationResult:
         Name of the applied pipe design, or ``None`` for the
         unchanged baseline network.
     scenario_name
-        Name of the hydraulic operating scenario.
+        Name of the hydraulic scenario.
     simulator_name
         Name of the hydraulic simulator used.
     pressure_result
         Minimum-pressure constraint result.
     velocity_result
-    Maximum-velocity constraint result.
-    pump_result
-    Head-pump operating-curve audit result, when available.
+        Maximum-velocity constraint result.
     feasible
-    Whether pressure, velocity and pump operating-curve
-    requirements were met.
+        Whether pressure, velocity and applicable pump operating-curve
+        requirements were met.
     simulation_error_code
-    Simulator error code, when one is supplied by WNTR.
+        Simulator error code, when one is supplied by WNTR.
+    pump_result
+        Head-pump operating-curve audit result, when available.
     """
 
     design_name: str | None

@@ -11,7 +11,6 @@ import wntr.extensions.design_verification.batch as batch_module
 from wntr.extensions.design_verification import (
     HydraulicScenario,
     PipeDesign,
-    UnsupportedSimulatorError,
     run_verification_batch,
 )
 
@@ -52,22 +51,28 @@ def build_small_network():
 
 def build_scenarios():
     """Return two small hydraulic scenarios."""
+    baseline_options = wntr.network.Options()
+    baseline_options.time.duration = 0
+    baseline_options.time.hydraulic_timestep = 3600
+    baseline_options.time.report_timestep = 3600
+    baseline_options.hydraulic.demand_multiplier = 1.0
+    baseline_options.hydraulic.demand_model = "DD"
+
+    higher_demand_options = wntr.network.Options()
+    higher_demand_options.time.duration = 0
+    higher_demand_options.time.hydraulic_timestep = 3600
+    higher_demand_options.time.report_timestep = 3600
+    higher_demand_options.hydraulic.demand_multiplier = 1.2
+    higher_demand_options.hydraulic.demand_model = "DD"
+
     return [
         HydraulicScenario(
             name="Baseline",
-            demand_multiplier=1.0,
-            demand_model="DD",
-            duration_s=0,
-            hydraulic_timestep_s=3600,
-            report_timestep_s=3600,
+            options=baseline_options,
         ),
         HydraulicScenario(
             name="Higher demand",
-            demand_multiplier=1.2,
-            demand_model="DD",
-            duration_s=0,
-            hydraulic_timestep_s=3600,
-            report_timestep_s=3600,
+            options=higher_demand_options,
         ),
     ]
 
@@ -88,7 +93,7 @@ def test_batch_returns_every_requested_combination():
         wn=wn,
         scenarios=build_scenarios(),
         designs=designs,
-        simulators=["WNTR"],
+        simulators=["WNTRSimulator"],
         minimum_pressure_m=0.0,
         maximum_velocity_mps=10.0,
         pressure_tolerance_m=1.0e-6,
@@ -134,7 +139,7 @@ def test_batch_preserves_original_network():
                 diameters_m={"P1": 0.200},
             )
         ],
-        simulators="WNTR",
+        simulators="WNTRSimulator",
         minimum_pressure_m=0.0,
         maximum_velocity_mps=10.0,
     )
@@ -151,7 +156,7 @@ def test_batch_records_failure_and_continues():
     summary, records = run_verification_batch(
         wn=wn,
         scenarios=[build_scenarios()[0]],
-        simulators=["WNTR", "unsupported"],
+        simulators=["WNTRSimulator", "unsupported"],
         minimum_pressure_m=0.0,
         maximum_velocity_mps=10.0,
         continue_on_error=True,
@@ -167,15 +172,14 @@ def test_batch_records_failure_and_continues():
         summary["status"] == "failed"
     ].iloc[0]
 
-    assert failed_row["error_type"] == "UnsupportedSimulatorError"
-    assert "simulator" in failed_row["error_message"]
+    assert failed_row["error_type"] == "AssertionError"
 
     failed_record = records[
         failed_row["experiment_id"]
     ]
 
     assert failed_record["verification"] is None
-    assert failed_record["error"]["type"] == "UnsupportedSimulatorError"
+    assert failed_record["error"]["type"] == "AssertionError"
 
 
 
@@ -214,7 +218,7 @@ def test_batch_configuration_hash_includes_network_hash():
     summary_one, _ = run_verification_batch(
         wn=wn_one,
         scenarios=[build_scenarios()[0]],
-        simulators="WNTR",
+        simulators="WNTRSimulator",
         minimum_pressure_m=0.0,
         maximum_velocity_mps=10.0,
     )
@@ -222,7 +226,7 @@ def test_batch_configuration_hash_includes_network_hash():
     summary_two, _ = run_verification_batch(
         wn=wn_two,
         scenarios=[build_scenarios()[0]],
-        simulators="WNTR",
+        simulators="WNTRSimulator",
         minimum_pressure_m=0.0,
         maximum_velocity_mps=10.0,
     )
@@ -248,7 +252,7 @@ def test_batch_configuration_hash_includes_tolerances():
     strict_summary, _ = run_verification_batch(
         wn=wn,
         scenarios=[scenario],
-        simulators="WNTR",
+        simulators="WNTRSimulator",
         minimum_pressure_m=0.0,
         maximum_velocity_mps=10.0,
         pressure_tolerance_m=0.0,
@@ -258,7 +262,7 @@ def test_batch_configuration_hash_includes_tolerances():
     tolerant_summary, _ = run_verification_batch(
         wn=wn,
         scenarios=[scenario],
-        simulators="WNTR",
+        simulators="WNTRSimulator",
         minimum_pressure_m=0.0,
         maximum_velocity_mps=10.0,
         pressure_tolerance_m=1.0e-6,
@@ -320,7 +324,7 @@ def test_batch_records_network_hash_failure_and_continues(
     summary, records = run_verification_batch(
         wn=wn,
         scenarios=build_scenarios(),
-        simulators="WNTR",
+        simulators="WNTRSimulator",
         minimum_pressure_m=0.0,
         maximum_velocity_mps=10.0,
         continue_on_error=True,
@@ -408,7 +412,7 @@ def test_batch_records_hash_failure_and_continues(
     summary, records = run_verification_batch(
         wn=wn,
         scenarios=build_scenarios(),
-        simulators="WNTR",
+        simulators="WNTRSimulator",
         minimum_pressure_m=0.0,
         maximum_velocity_mps=10.0,
         continue_on_error=True,
@@ -487,7 +491,7 @@ def test_batch_reraises_hash_failure_when_requested(
         run_verification_batch(
             wn=wn,
             scenarios=[build_scenarios()[0]],
-            simulators="WNTR",
+            simulators="WNTRSimulator",
             minimum_pressure_m=0.0,
             maximum_velocity_mps=10.0,
             continue_on_error=False,
@@ -498,10 +502,7 @@ def test_batch_can_raise_immediately_on_failure():
     """Confirm that continue_on_error=False re-raises an error."""
     wn = build_small_network()
 
-    with pytest.raises(
-        UnsupportedSimulatorError,
-        match="simulator",
-    ):
+    with pytest.raises(AssertionError):
         run_verification_batch(
             wn=wn,
             scenarios=[build_scenarios()[0]],
@@ -519,7 +520,7 @@ def test_batch_includes_pump_diagnostics():
     summary, _ = run_verification_batch(
         wn=wn,
         scenarios=[build_scenarios()[0]],
-        simulators="WNTR",
+        simulators="WNTRSimulator",
         minimum_pressure_m=0.0,
         maximum_velocity_mps=10.0,
     )
