@@ -1,10 +1,12 @@
 """Hydraulic design-verification extension for WNTR.
 
-The extension applies proposed pipe designs and hydraulic operating
-scenarios to independent copies of a water network model, runs hydraulic
-simulation, and evaluates engineering constraints.
-"""
+The extension applies proposed pipe-diameter changes and WNTR hydraulic
+simulation options to independent copies of a water network model, runs
+hydraulic simulations, and evaluates engineering constraints.
 
+Verification considers pipe diameter and the WNTR time and hydraulic
+simulation option groups.
+"""
 from .batch import run_verification_batch
 from .constraints import (
     evaluate_maximum_velocity,

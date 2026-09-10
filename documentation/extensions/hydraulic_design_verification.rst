@@ -1,13 +1,8 @@
-.. _hydraulic_design_verification:
-
-Hydraulic Design Verification
-=============================
-
 **Summary:** The ``design_verification`` extension applies proposed pipe
-designs and hydraulic operating scenarios to independent copies of a
-WNTR water-distribution network model. It runs a hydraulic simulation
-and checks whether pressure, velocity and pump operating requirements
-are satisfied.
+diameter changes and WNTR hydraulic simulation options to independent
+copies of a WNTR water-distribution network model. It runs hydraulic
+simulations and checks whether pressure, velocity and pump operating
+requirements are satisfied.
 
 **Point of contact:** Rheal Thomas,
 https://github.com/thom1505
@@ -21,7 +16,7 @@ design, rehabilitation, optimisation and scenario-analysis workflows.
 It can:
 
 * apply proposed pipe diameters without modifying the original network;
-* apply hydraulic operating scenarios;
+* apply WNTR hydraulic simulation options;
 * run simulations using ``WNTRSimulator`` or ``EpanetSimulator``;
 * assess minimum junction pressure;
 * assess maximum absolute pipe velocity;
@@ -47,44 +42,51 @@ pump audit is not applicable.
 Basic use
 ---------
 
-A hydraulic scenario can be created as follows:
+A hydraulic scenario uses WNTR's native simulation options:
 
 .. doctest::
 
+   >>> from wntr.network import Options
    >>> from wntr.extensions.design_verification import HydraulicScenario
+   >>> options = Options()
+   >>> options.hydraulic.demand_model = "DD"
+   >>> options.time.duration = 0
+   >>> options.time.hydraulic_timestep = 3600
+   >>> options.time.report_timestep = 3600
    >>> scenario = HydraulicScenario(
    ...     name="Baseline DD",
-   ...     demand_model="DD",
-   ...     duration_s=0,
-   ...     hydraulic_timestep_s=3600,
-   ...     report_timestep_s=3600,
+   ...     options=options,
    ... )
    >>> scenario.name
    'Baseline DD'
-   >>> scenario.demand_model
-   'DD'
+   >>> isinstance(scenario.options, Options)
+   True
 
 The following example assumes that ``wn`` is an existing
 ``WaterNetworkModel``:
 
 .. code-block:: python
 
+   from wntr.network import Options
    from wntr.extensions.design_verification import (
        HydraulicScenario,
        PipeDesign,
        run_design_verification,
    )
 
+   options = Options()
+   options.hydraulic.demand_model = "PDD"
+   options.hydraulic.demand_multiplier = 1.25
+   options.hydraulic.minimum_pressure = 0.0
+   options.hydraulic.required_pressure = 15.0
+   options.hydraulic.pressure_exponent = 0.5
+   options.time.duration = 24 * 3600
+   options.time.hydraulic_timestep = 3600
+   options.time.report_timestep = 3600
+
    scenario = HydraulicScenario(
        name="Peak-demand scenario",
-       demand_model="PDD",
-       demand_multiplier=1.25,
-       duration_s=24 * 3600,
-       hydraulic_timestep_s=3600,
-       report_timestep_s=3600,
-       minimum_pressure_m=0.0,
-       required_pressure_m=15.0,
-       pressure_exponent=0.5,
+       options=options,
    )
 
    design = PipeDesign(
@@ -99,7 +101,7 @@ The following example assumes that ``wn`` is an existing
        wn=wn,
        scenario=scenario,
        design=design,
-       simulator="WNTR",
+       simulator="WNTRSimulator",
        minimum_pressure_m=15.0,
        maximum_velocity_mps=2.5,
        required_compliance_pct=100.0,
@@ -293,9 +295,9 @@ For example:
            None,
            candidate_design,
        ],
-       simulators=(
-           "WNTR",
-           "EPANET",
+              simulators=(
+           "WNTRSimulator",
+           "EpanetSimulator",
        ),
        minimum_pressure_m=15.0,
        maximum_velocity_mps=2.5,
@@ -363,8 +365,8 @@ Additional pump-summary fields include
 Protection of the original network
 ----------------------------------
 
-Pipe-design and hydraulic-scenario changes are applied to independent
-network copies. The original ``WaterNetworkModel`` supplied to
+Pipe-diameter changes and WNTR hydraulic simulation options are applied
+to independent network copies. The original ``WaterNetworkModel`` supplied to
 ``run_design_verification`` is therefore preserved.
 
 Complete hydraulic results are required for verification. Pressure
