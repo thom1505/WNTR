@@ -6,6 +6,7 @@ import copy
 import math
 
 from wntr.network import WaterNetworkModel
+from wntr.utils.check_values import _check_positive_non_zero_float
 
 from .exceptions import InvalidDesignError
 from .models import PipeDesign
@@ -77,19 +78,16 @@ def apply_pipe_design(
             )
 
         try:
-            new_diameter_m = float(proposed_diameter)
-        except (TypeError, ValueError) as error:
-            raise InvalidDesignError(
-                f"Diameter for pipe {pipe_name!r} must be numeric."
-            ) from error
+            new_diameter_m = _check_positive_non_zero_float(
+                proposed_diameter,
+                f"Diameter for pipe {pipe_name!r}",
+            )
+        except ValueError as error:
+            raise InvalidDesignError(str(error)) from error
 
-        if (
-            not math.isfinite(new_diameter_m)
-            or new_diameter_m <= 0.0
-        ):
+        if not math.isfinite(new_diameter_m):
             raise InvalidDesignError(
-                f"Diameter for pipe {pipe_name!r} must be finite "
-                "and greater than zero."
+                f"Diameter for pipe {pipe_name!r} must be finite."
             )
 
         pipe = trial_wn.get_link(pipe_name)

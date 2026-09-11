@@ -6,6 +6,11 @@ import math
 
 import numpy as np
 import pandas as pd
+from wntr.utils.check_values import (
+    _check_float,
+    _check_positive_non_zero_float,
+    _check_positive_or_zero_float,
+)
 
 from .exceptions import InvalidConstraintError
 from .models import ConstraintResult
@@ -15,7 +20,10 @@ def _validate_compliance_percentage(
     required_compliance_pct: float,
 ) -> float:
     """Validate a required compliance percentage."""
-    required = float(required_compliance_pct)
+    required = _check_float(
+        required_compliance_pct,
+        "required_compliance_pct",
+    )
 
     if not math.isfinite(required):
         raise InvalidConstraintError(
@@ -36,19 +44,14 @@ def _validate_tolerance(
     name: str,
 ) -> float:
     """Return a validated non-negative finite tolerance."""
-    try:
-        tolerance = float(value)
-    except (TypeError, ValueError) as error:
-        raise InvalidConstraintError(
-            f"{name} must be finite and non-negative."
-        ) from error
+    tolerance = _check_positive_or_zero_float(
+        value,
+        name,
+    )
 
-    if (
-        not math.isfinite(tolerance)
-        or tolerance < 0.0
-    ):
+    if not math.isfinite(tolerance):
         raise InvalidConstraintError(
-            f"{name} must be finite and non-negative."
+            f"{name} must be finite."
         )
 
     return tolerance
@@ -84,7 +87,10 @@ def evaluate_minimum_pressure(
     """
     values = pressure.to_numpy(dtype=float)
 
-    minimum_pressure = float(minimum_pressure_m)
+    minimum_pressure = _check_float(
+        minimum_pressure_m,
+        "minimum_pressure_m",
+    )
 
     if not math.isfinite(minimum_pressure):
         raise InvalidConstraintError(
@@ -156,15 +162,14 @@ def evaluate_maximum_velocity(
     """
     values = velocity.to_numpy(dtype=float)
 
-    maximum_velocity = float(maximum_velocity_mps)
+    maximum_velocity = _check_positive_non_zero_float(
+        maximum_velocity_mps,
+        "maximum_velocity_mps",
+    )
 
-    if (
-        not math.isfinite(maximum_velocity)
-        or maximum_velocity <= 0.0
-    ):
+    if not math.isfinite(maximum_velocity):
         raise InvalidConstraintError(
-            "maximum_velocity_mps must be finite and "
-            "greater than zero."
+            "maximum_velocity_mps must be finite."
         )
 
     required = _validate_compliance_percentage(
