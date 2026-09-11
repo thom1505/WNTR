@@ -1,7 +1,7 @@
 """Hydraulic design-verification extension for WNTR.
 
-The extension applies proposed pipe-diameter changes and WNTR hydraulic
-simulation options to independent copies of a water network model, runs
+The extension applies proposed pipe-diameter changes and WNTR time and
+hydraulic simulation options to independent copies of a water network model, runs
 hydraulic simulations, and evaluates engineering constraints.
 
 Verification considers pipe diameter and the WNTR time and hydraulic
