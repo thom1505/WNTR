@@ -212,36 +212,36 @@ def run_verification_batch(
 
     Parameters
     ----------
-    wn
+    wn : WaterNetworkModel
         Original WNTR water-distribution network.
-    scenarios
+    scenarios : Sequence[HydraulicScenario]
         Hydraulic scenarios containing WNTR time and hydraulic options.
-    designs
+    designs : Sequence[PipeDesign | None] or None, optional
         Pipe-diameter designs to assess. Use ``None`` for the unchanged
         baseline network. When omitted, only the baseline is assessed.
-    simulators
+    simulators : Sequence[str] or str, optional
         ``WNTRSimulator`` or ``EpanetSimulator``, or a sequence
         containing those names.
-    minimum_pressure_m
+    minimum_pressure_m : float, optional
         Minimum acceptable junction pressure.
-    maximum_velocity_mps
+    maximum_velocity_mps : float, optional
         Maximum acceptable absolute pipe velocity.
-    required_compliance_pct
+    required_compliance_pct : float, optional
         Required pressure and velocity compliance percentage.
-    pressure_tolerance_m
+    pressure_tolerance_m : float, optional
         Numerical tolerance below the minimum pressure limit.
-    velocity_tolerance_mps
+    velocity_tolerance_mps : float, optional
         Numerical tolerance above the maximum velocity limit.
-    continue_on_error
+    continue_on_error : bool, optional
         Record an experiment failure and continue when ``True``.
-    retain_hydraulic_results
+    retain_hydraulic_results : bool, optional
         Retain raw hydraulic result objects in returned records.
 
     Returns
     -------
-    summary
+    summary : pd.DataFrame
         One row per requested experiment.
-    records
+    records : dict
         Detailed records keyed by experiment ID.
     """
     assert isinstance(wn, WaterNetworkModel)

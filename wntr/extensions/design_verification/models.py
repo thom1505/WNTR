@@ -18,16 +18,16 @@ class ConstraintResult:
 
     Parameters
     ----------
-    critical_value
+    critical_value : float
         Minimum pressure or maximum absolute velocity found in the
         hydraulic-results table.
-    compliance_pct
+    compliance_pct : float
         Percentage of assessed values satisfying the constraint.
-    feasible
+    feasible : bool
         Whether the required compliance percentage was achieved.
-    critical_component
+    critical_component : str
         Name of the junction or pipe containing the critical value.
-    critical_time
+    critical_time : Hashable
         Simulation time corresponding to the critical value.
     """
 
@@ -44,9 +44,9 @@ class PipeDesign:
 
     Parameters
     ----------
-    name
+    name : str
         User-facing name for the design alternative.
-    diameters_m
+    diameters_m : Mapping[str, float]
         Mapping of pipe names to proposed diameters in metres.
     """
 
@@ -60,9 +60,9 @@ class HydraulicScenario:
 
     Parameters
     ----------
-    name
+    name : str
         User-facing name for the hydraulic scenario.
-    options
+    options : Options
         WNTR simulation options. The design-verification extension
         applies the time and hydraulic option groups to an independent
         copy of the water network model.
@@ -78,23 +78,23 @@ class VerificationResult:
 
     Parameters
     ----------
-    design_name
+    design_name : str or None
         Name of the applied pipe design, or ``None`` for the
         unchanged baseline network.
-    scenario_name
+    scenario_name : str
         Name of the hydraulic scenario.
-    simulator_name
+    simulator_name : str
         Name of the hydraulic simulator used.
-    pressure_result
+    pressure_result : ConstraintResult
         Minimum-pressure constraint result.
-    velocity_result
+    velocity_result : ConstraintResult
         Maximum-velocity constraint result.
-    feasible
+    feasible : bool
         Whether pressure, velocity and applicable pump operating-curve
         requirements were met.
-    simulation_error_code
+    simulation_error_code : int or None
         Simulator error code, when one is supplied by WNTR.
-    pump_result
+    pump_result : AllPumpCurveResult or None
         Head-pump operating-curve audit result, when available.
     """
 

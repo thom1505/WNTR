@@ -21,17 +21,17 @@ def apply_hydraulic_scenario(
 
     Parameters
     ----------
-    wn
+    wn : WaterNetworkModel
         Original WNTR water-distribution network model.
-    scenario
+    scenario : HydraulicScenario
         Scenario containing the WNTR simulation options to apply.
 
     Returns
     -------
-    scenario_wn
+    scenario_wn : WaterNetworkModel
         Independent network copy containing the selected time and
         hydraulic simulation options.
-    audit
+    audit : dict
         Dictionary recording the original and applied simulation
         options.
     """

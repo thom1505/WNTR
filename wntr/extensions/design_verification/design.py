@@ -21,17 +21,17 @@ def apply_pipe_design(
 
     Parameters
     ----------
-    wn
+    wn : WaterNetworkModel
         Original WNTR water-distribution network model.
-    design
+    design : PipeDesign
         Proposed pipe-diameter changes in metres.
 
     Returns
     -------
-    trial_wn
+    trial_wn : WaterNetworkModel
         Independent copy of the original network containing the
         proposed diameter changes.
-    audit_records
+    audit_records : list of dict
         Records containing each pipe's original and proposed diameter.
 
     Raises

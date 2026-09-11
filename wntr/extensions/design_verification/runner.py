@@ -86,40 +86,40 @@ def run_design_verification(
 
     Parameters
     ----------
-    wn
+    wn : WaterNetworkModel
         Original WNTR water-distribution network model.
-    scenario
+    scenario : HydraulicScenario
         WNTR time and hydraulic simulation options to assess.
-    design
+    design : PipeDesign or None, optional
         Optional pipe-diameter design. If omitted, the unchanged
         baseline network is assessed.
-    simulator
+    simulator : str, optional
         Hydraulic simulation engine. Accepted values are
         ``WNTRSimulator`` and ``EpanetSimulator``.
-    minimum_pressure_m
+    minimum_pressure_m : float, optional
         Minimum acceptable junction pressure in metres.
-    maximum_velocity_mps
+    maximum_velocity_mps : float, optional
         Maximum acceptable absolute pipe velocity in metres per second.
-    required_compliance_pct
+    required_compliance_pct : float, optional
         Required percentage of assessed node-time and pipe-time values
         satisfying each constraint.
-    pressure_tolerance_m
+    pressure_tolerance_m : float, optional
         Non-negative numerical tolerance applied below the minimum
         pressure limit. The default of zero preserves strict comparison
         behaviour.
-    velocity_tolerance_mps
+    velocity_tolerance_mps : float, optional
         Non-negative numerical tolerance applied above the maximum
         absolute velocity limit. The default of zero preserves strict
         comparison behaviour.
 
     Returns
     -------
-    verification
+    verification : VerificationResult
         Structured pressure, velocity, pump and overall feasibility
         result.
-    hydraulic_results
+    hydraulic_results : Any
         Raw WNTR hydraulic simulation results.
-    audit
+    audit : dict
         Record of the applied design, scenario, simulator and assessed
         components.
     """

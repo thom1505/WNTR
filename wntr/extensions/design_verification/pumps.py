@@ -161,15 +161,15 @@ def audit_head_pump_curves(
 
     Parameters
     ----------
-    network
+    network : WaterNetworkModel
         WNTR water-network model used for the simulation.
-    flowrate
+    flowrate : pd.DataFrame
         Link-flowrate results indexed by simulation time.
-    status
+    status : pd.DataFrame or None, optional
         Optional link-status results. Positive values are treated as active.
-    setting
+    setting : pd.DataFrame or None, optional
         Optional link-setting results. For pumps, this represents speed.
-    relative_tolerance
+    relative_tolerance : float, optional
         Relative numerical tolerance applied to the curve-domain limit.
     """
     if not isinstance(network, WaterNetworkModel):

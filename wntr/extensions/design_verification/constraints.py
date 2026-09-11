@@ -64,15 +64,15 @@ def evaluate_minimum_pressure(
 
     Parameters
     ----------
-    pressure
+    pressure : pd.DataFrame
         Junction-pressure results. Rows represent simulation times and
         columns represent junction names.
-    minimum_pressure_m
+    minimum_pressure_m : float
         Minimum allowable pressure head in metres.
-    required_compliance_pct
+    required_compliance_pct : float, optional
         Percentage of junction-time values required to satisfy the
         pressure limit.
-    pressure_tolerance_m
+    pressure_tolerance_m : float, optional
         Non-negative numerical tolerance applied below the minimum
         pressure limit. The default of zero preserves strict
         comparison behaviour.
@@ -136,15 +136,15 @@ def evaluate_maximum_velocity(
 
     Parameters
     ----------
-    velocity
+    velocity : pd.DataFrame
         Pipe-velocity results. Rows represent simulation times and
         columns represent pipe names.
-    maximum_velocity_mps
+    maximum_velocity_mps : float
         Maximum allowable absolute velocity in metres per second.
-    required_compliance_pct
+    required_compliance_pct : float, optional
         Percentage of pipe-time values required to satisfy the
         velocity limit.
-    velocity_tolerance_mps
+    velocity_tolerance_mps : float, optional
         Non-negative numerical tolerance applied above the maximum
         absolute velocity limit. The default of zero preserves strict
         comparison behaviour.
