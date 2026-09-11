@@ -19,7 +19,7 @@ design, rehabilitation, optimisation and scenario-analysis workflows.
 It can:
 
 * apply proposed pipe diameters without modifying the original network;
-* apply WNTR hydraulic simulation options;
+* apply WNTR time and hydraulic simulation options;
 * run simulations using ``WNTRSimulator`` or ``EpanetSimulator``;
 * assess minimum junction pressure;
 * assess maximum absolute pipe velocity;
@@ -185,6 +185,7 @@ For routine analysis, verification results can be checked directly using
 simple assertions, as demonstrated in the doctest above. This keeps the
 workflow focused on whether a candidate design satisfies the hydraulic
 pressure, velocity and pump-operating requirements.
+
 Returned information
 --------------------
 
@@ -279,7 +280,7 @@ For example:
            None,
            candidate_design,
        ],
-              simulators=(
+       simulators=(
            "WNTRSimulator",
            "EpanetSimulator",
        ),
@@ -349,15 +350,14 @@ Additional pump-summary fields include
 Protection of the original network
 ----------------------------------
 
-Pipe-diameter changes and WNTR hydraulic simulation options are applied
+Pipe-diameter changes and WNTR time and hydraulic simulation options are applied
 to independent network copies. The original ``WaterNetworkModel`` supplied to
 ``run_design_verification`` is therefore preserved.
 
-Complete hydraulic results are required for verification. Pressure
-results must include every junction in the assessed network, and
-velocity results must include every pipe. Missing or duplicated
-required result columns cause the verification run to fail without
-returning a hydraulic feasibility decision. Extra result columns for
+Verification selects junction-pressure and pipe-velocity results using
+WNTR's junction and pipe name lists. WNTR's network registry provides
+unique node and link names. Missing required result columns cause the
+corresponding pandas column selection to fail. Extra result columns for
 reservoirs, tanks, pumps, or valves are permitted and are excluded from
 the corresponding junction-pressure and pipe-velocity assessments.
 
@@ -365,8 +365,10 @@ Limitations
 -----------
 
 Verification results depend on the quality and completeness of the
-network model, hydraulic options, demand assumptions, pump curves,
-controls and simulation convergence.
+network model, hydraulic options, demand assumptions, pump curves and
+simulation convergence. Existing network controls can influence the
+hydraulic simulation, but controls are not modified or parameterized by
+the design-verification extension.
 
 Pressure and velocity limits are supplied by the user. Default values
 are not intended to replace applicable utility standards, engineering
