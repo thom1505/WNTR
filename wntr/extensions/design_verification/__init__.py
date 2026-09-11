@@ -17,8 +17,6 @@ from .exceptions import (
     IncompleteHydraulicResultsError,
     InvalidConstraintError,
     InvalidDesignError,
-    InvalidScenarioError,
-    UnsupportedSimulatorError,
 )
 from .design import apply_pipe_design
 from .models import (
@@ -42,8 +40,6 @@ __all__ = [
     "IncompleteHydraulicResultsError",
     "InvalidConstraintError",
     "InvalidDesignError",
-    "InvalidScenarioError",
-    "UnsupportedSimulatorError",
     "HydraulicScenario",
     "PipeDesign",
     "PumpCurveResult",
