@@ -259,7 +259,7 @@ def audit_head_pump_curves(
                 dtype=float,
             )
         else:
-                speed = pump_setting
+            speed = pump_setting
 
         allowed_flow = curve_maximum_flow * speed
 
